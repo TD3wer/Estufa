@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coleta de Dados — Estufa</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde:       #2D6A4F;
+    --verde-claro: #40916C;
+    --verde-suave: #D8F3DC;
+    --verde-calc:  #E8F5E9;
+    --amarelo:     #F4A261;
+    --vermelho:    #E76F51;
+    --bg:          #F0F7F4;
+    --card:        #FFFFFF;
+    --texto:       #1B2D25;
+    --muted:       #6B8F71;
+    --borda:       #B7DFC6;
+    --calc-borda:  #A5D6A7;
+    --calc-texto:  #1B5E20;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 80px;
+    color: var(--texto);
+  }
+
+  header { text-align: center; margin-bottom: 24px; }
+  header h1 { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--verde); }
+  header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  /* PROGRESSO */
+  .progresso-wrap {
+    width: 100%; max-width: 580px;
+    background: var(--card); border: 1px solid var(--borda);
+    border-radius: 14px; padding: 16px 20px; margin-bottom: 16px;
+  }
+  .progresso-info { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .progresso-info span { font-size:13px; color:var(--muted); font-weight:500; }
+  .progresso-info strong { font-size:14px; color:var(--verde); }
+  .barra-bg { width:100%; height:9px; background:var(--verde-suave); border-radius:99px; overflow:hidden; }
+  .barra-fill { height:100%; background:linear-gradient(90deg,var(--verde),var(--verde-claro)); border-radius:99px; transition:width 0.5s ease; width:0%; }
+
+  /* GRID */
+  .grid-wrap {
+    width:100%; max-width:580px;
+    background:var(--card); border:1px solid var(--borda);
+    border-radius:14px; padding:14px 16px; margin-bottom:16px;
+  }
+  .grid-titulo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); margin-bottom:10px; }
+  .fileiras-lista { display:flex; flex-direction:column; gap:4px; }
+  .fileira-row { display:flex; align-items:center; gap:5px; }
+  .fileira-label { font-size:11px; font-weight:600; color:var(--muted); width:18px; text-align:right; flex-shrink:0; }
+  .blocos-wrap { display:flex; gap:5px; }
+  .bloco-group { display:flex; gap:2px; }
+  .bloco-sep { width:1px; background:var(--borda); margin:0 2px; }
+  .dot { width:12px; height:12px; border-radius:3px; background:#E8F5EC; border:1px solid #C5E0CC; cursor:pointer; transition:transform 0.1s,background 0.2s; }
+  .dot:hover { transform:scale(1.3); }
+  .dot.registrado { background:var(--verde); border-color:var(--verde); }
+  .dot.ausente { background:var(--amarelo); border-color:#D4893A; }
+  .dot.atual { background:#fff; border:2px solid var(--verde); box-shadow:0 0 0 2px #B7DFC6; }
+  .legenda { display:flex; gap:12px; margin-top:8px; flex-wrap:wrap; }
+  .leg-item { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--muted); }
+  .leg-dot { width:10px; height:10px; border-radius:2px; }
+
+  /* CARDS */
+  .card {
+    width:100%; max-width:580px;
+    background:var(--card); border:1px solid var(--borda);
+    border-radius:16px; padding:22px; margin-bottom:14px;
+    box-shadow:0 2px 12px rgba(45,106,79,0.06);
+  }
+
+  /* ETAPAS */
+  .etapas-bar {
+    display:flex; gap:0; margin-bottom:20px;
+    border:1px solid var(--borda); border-radius:10px; overflow:hidden;
+  }
+  .etapa-btn {
+    flex:1; padding:10px 8px; text-align:center;
+    font-size:12px; font-weight:600; color:var(--muted);
+    background:var(--bg); border:none; cursor:default;
+    border-right:1px solid var(--borda); font-family:'DM Sans',sans-serif;
+    transition:background 0.2s,color 0.2s;
+  }
+  .etapa-btn:last-child { border-right:none; }
+  .etapa-btn.ativa { background:var(--verde); color:#fff; }
+  .etapa-btn.concluida { background:var(--verde-suave); color:var(--verde); }
+
+  .card-titulo { font-family:'DM Serif Display',serif; font-size:20px; color:var(--verde); margin-bottom:3px; }
+  .card-sub { font-size:13px; color:var(--muted); margin-bottom:16px; }
+
+  .secao { border:1px solid var(--borda); border-radius:12px; padding:14px; margin-bottom:14px; }
+  .secao-titulo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .dot-secao { width:7px; height:7px; border-radius:50%; background:var(--verde); flex-shrink:0; }
+
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0 14px; }
+  .campo { margin-bottom:12px; }
+
+  label { display:block; font-size:12px; font-weight:600; color:var(--texto); margin-bottom:4px; }
+
+  input[type=number] {
+    width:100%; padding:10px 12px;
+    border:1.5px solid var(--borda); border-radius:9px;
+    font-size:15px; font-family:'DM Sans',sans-serif;
+    background:var(--bg); color:var(--texto);
+    transition:border-color 0.2s,box-shadow 0.2s; outline:none;
+  }
+  input[type=number]:focus {
+    border-color:var(--verde-claro);
+    box-shadow:0 0 0 3px rgba(64,145,108,0.15);
+    background:#fff;
+  }
+
+  .calc-box {
+    background:var(--verde-calc); border:1.5px solid var(--calc-borda);
+    border-radius:9px; padding:10px 12px;
+    font-size:15px; font-weight:600; color:var(--calc-texto);
+    min-height:42px; display:flex; align-items:center; gap:6px;
+  }
+  .calc-badge { font-size:9px; background:var(--verde); color:#fff; padding:2px 6px; border-radius:99px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; flex-shrink:0; }
+  .formula-hint { font-size:11px; color:var(--muted); margin-top:4px; font-style:italic; }
+
+  /* LARGURAS DAS FOLHAS */
+  .folhas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .folha-campo label { font-size:11px; color:var(--muted); margin-bottom:3px; }
+  .folha-campo input { font-size:14px; padding:8px 10px; }
+
+  .area-preview-box {
+    background: linear-gradient(135deg, var(--verde-calc), #C8E6C9);
+    border: 2px solid var(--calc-borda);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .area-preview-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); margin-bottom:4px; }
+  .area-preview-valor { font-family:'DM Serif Display',serif; font-size:32px; color:var(--verde); }
+  .area-preview-unidade { font-size:13px; color:var(--muted); margin-top:2px; }
+  .area-preview-detalhe { font-size:11px; color:var(--muted); margin-top:6px; font-style:italic; }
+
+  .progresso-folhas {
+    display:flex; align-items:center; gap:8px; margin-bottom:12px;
+    background:var(--bg); border:1px solid var(--borda); border-radius:8px; padding:8px 12px;
+    font-size:13px; color:var(--muted);
+  }
+  .progresso-folhas strong { color:var(--verde); }
+
+  /* Botões */
+  .btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; }
+
+  button {
+    flex:1; min-width:100px; padding:12px 16px;
+    border:none; border-radius:10px;
+    font-size:15px; font-weight:600; font-family:'DM Sans',sans-serif;
+    cursor:pointer; transition:opacity 0.15s,transform 0.1s;
+  }
+  button:active { transform:scale(0.97); }
+  .btn-primary { background:var(--verde); color:#fff; }
+  .btn-primary:hover { background:var(--verde-claro); }
+  .btn-secondary { background:var(--verde-suave); color:var(--verde); border:1.5px solid var(--borda); }
+  .btn-secondary:hover { background:#C3EDD0; }
+  .btn-ausente { background:#FFF3E0; color:#BF6B00; border:1.5px solid #F0C280; flex:none; width:100%; margin-top:8px; }
+  .btn-ausente:hover { background:#FFE8B2; }
+  .btn-perigo { background:#FFF0ED; color:var(--vermelho); border:1.5px solid #F5C4BB; font-size:13px; padding:10px; }
+  .btn-perigo:hover { background:#FFE4DE; }
+
+  .status-tag { display:inline-block; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:600; margin-bottom:8px; }
+  .tag-novo { background:var(--verde-suave); color:var(--verde); }
+  .tag-editando { background:#FFF3CD; color:#856404; }
+
+  .rotulo-pill { display:inline-block; background:var(--verde); color:#fff; font-size:13px; font-weight:700; padding:3px 12px; border-radius:99px; margin-right:8px; letter-spacing:0.5px; }
+
+  .nav-row { display:flex; gap:8px; margin-bottom:14px; }
+  .nav-row button { flex:1; font-size:13px; padding:9px; min-width:unset; }
+
+  .finalizado { text-align:center; padding:4px 0; }
+  .finalizado h2 { font-family:'DM Serif Display',serif; color:var(--verde); font-size:20px; margin-bottom:6px; }
+  .finalizado p { color:var(--muted); font-size:13px; margin-bottom:16px; }
+  .btn-excel { width:100%; padding:14px; background:var(--verde); color:#fff; border-radius:12px; font-size:16px; font-weight:600; border:none; cursor:pointer; transition:background 0.2s; margin-bottom:10px; }
+  .btn-excel:hover { background:var(--verde-claro); }
+  .btn-novo { width:100%; padding:11px; background:transparent; color:var(--vermelho); border:1.5px solid var(--vermelho); border-radius:12px; font-size:13px; font-weight:600; cursor:pointer; }
+  .btn-novo:hover { background:#FFF0ED; }
+
+  .toast {
+    position:fixed; bottom:24px; left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--verde); color:#fff;
+    padding:10px 22px; border-radius:99px;
+    font-size:14px; font-weight:500;
+    opacity:0; transition:opacity 0.3s,transform 0.3s;
+    pointer-events:none; z-index:999;
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* Painel de etapa */
+  .painel { display:none; }
+  .painel.visivel { display:block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌿 Coleta de Dados</h1>
+  <p>Avaliação morfofisiológica · 10 fileiras · 3 blocos · 10 plantas = 300 plantas</p>
+</header>
+
+<!-- PROGRESSO -->
+<div class="progresso-wrap">
+  <div class="progresso-info">
+    <span>Progresso geral</span>
+    <strong id="txt-progresso">0 / 300</strong>
+  </div>
+  <div class="barra-bg"><div class="barra-fill" id="barra"></div></div>
+</div>
+
+<!-- GRID VISUAL -->
+<div class="grid-wrap">
+  <div class="grid-titulo">Mapa das plantas — cada grupo de 10 é um bloco</div>
+  <div class="fileiras-lista" id="grid-fileiras"></div>
+  <div class="legenda">
+    <div class="leg-item"><div class="leg-dot" style="background:#E8F5EC;border:1px solid #C5E0CC"></div> Pendente</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--verde)"></div> Registrado</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--amarelo)"></div> Ausente</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#fff;border:2px solid var(--verde)"></div> Atual</div>
+  </div>
+</div>
+
+<!-- CARD PRINCIPAL -->
+<div class="card" id="card-form">
+
+  <div id="status-tag" class="status-tag tag-novo">Nova entrada</div>
+  <div class="card-titulo">
+    <span class="rotulo-pill" id="rotulo-pill">F1B1</span>
+    <span id="titulo">Planta 1</span>
+  </div>
+  <div class="card-sub" id="subtitulo">Preencha os dados abaixo</div>
+
+  <div class="nav-row">
+    <button class="btn-secondary" onclick="navAnterior()">← Anterior</button>
+    <button class="btn-secondary" onclick="navProxima()">Próxima →</button>
+  </div>
+
+  <!-- BARRA DE ETAPAS -->
+  <div class="etapas-bar">
+    <div class="etapa-btn ativa" id="etapa-btn-1">① Dados da Planta</div>
+    <div class="etapa-btn"      id="etapa-btn-2">② Larguras das Folhas</div>
+  </div>
+
+  <!-- ═══════════ ETAPA 1: Dados da planta ═══════════ -->
+  <div class="painel visivel" id="painel-1">
+
+    <div class="secao">
+      <div class="secao-titulo"><div class="dot-secao"></div> Dados Gerais</div>
+      <div class="grid-2">
+        <div class="campo">
+          <label for="altura">Altura da Planta (m)</label>
+          <input type="number" id="altura" placeholder="Ex: 1.45" step="0.01" min="0">
+        </div>
+        <div class="campo">
+          <label for="folhas">Nº de Folhas</label>
+          <input type="number" id="folhas" placeholder="Ex: 12" min="1" oninput="this.value=Math.max(1,parseInt(this.value)||1)">
+        </div>
+        <div class="campo">
+          <label for="numCachos">Nº de Cachos</label>
+          <input type="number" id="numCachos" placeholder="Ex: 3" min="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="secao">
+      <div class="secao-titulo"><div class="dot-secao"></div> SPAD (Unidade)</div>
+      <div class="grid-2">
+        <div class="campo">
+          <label for="spadProtocolo">SPAD Protocolo</label>
+          <input type="number" id="spadProtocolo" placeholder="Ex: 42.5" step="0.01" min="0">
+        </div>
+        <div class="campo">
+          <label for="spadApice">SPAD Ápice</label>
+          <input type="number" id="spadApice" placeholder="Ex: 38.2" step="0.01" min="0" oninput="atualizarCalcSpad()">
+        </div>
+        <div class="campo">
+          <label for="spadMedio">SPAD Médio</label>
+          <input type="number" id="spadMedio" placeholder="Ex: 41.0" step="0.01" min="0" oninput="atualizarCalcSpad()">
+        </div>
+        <div class="campo">
+          <label for="spadBase">SPAD Base</label>
+          <input type="number" id="spadBase" placeholder="Ex: 39.5" step="0.01" min="0" oninput="atualizarCalcSpad()">
+        </div>
+      </div>
+      <div class="campo">
+        <label>SPAD Planta <span style="font-weight:400;color:var(--muted)">(calculado automaticamente)</span></label>
+        <div class="calc-box">
+          <span id="prev-spad-planta">—</span>
+          <span class="calc-badge">AUTO</span>
+        </div>
+        <div class="formula-hint">= (Ápice + Médio + Base) ÷ 3</div>
+      </div>
+    </div>
+
+    <div class="secao">
+      <div class="secao-titulo"><div class="dot-secao"></div> Índice de Espessura — IE (mm)</div>
+      <div class="grid-3">
+        <div class="campo">
+          <label for="ieDE">DE (mm)</label>
+          <input type="number" id="ieDE" placeholder="Ex: 2.10" step="0.001" min="0" oninput="atualizarCalcIE()">
+        </div>
+        <div class="campo">
+          <label for="ieDPOE">DPOE (mm)</label>
+          <input type="number" id="ieDPOE" placeholder="Ex: 3.50" step="0.001" min="0" oninput="atualizarCalcIE()">
+        </div>
+        <div class="campo">
+          <label for="ieDPE">DPE (mm)</label>
+          <input type="number" id="ieDPE" placeholder="Ex: 3.20" step="0.001" min="0" oninput="atualizarCalcIE()">
+        </div>
+      </div>
+      <div class="campo">
+        <label>IE <span style="font-weight:400;color:var(--muted)">(calculado automaticamente)</span></label>
+        <div class="calc-box">
+          <span id="prev-ie">—</span>
+          <span class="calc-badge">AUTO</span>
+        </div>
+        <div class="formula-hint">= { (DPE − DE) + [(DPOE − DE) + (DPOE − DPE)] ÷ 2 } ÷ 2</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary btn-perigo" onclick="limparAtual()">✕ Limpar</button>
+      <button class="btn-primary" onclick="irParaEtapa2()">Próximo: Larguras →</button>
+    </div>
+    <button class="btn-ausente" onclick="marcarAusente()">⚠ Marcar como Ausente</button>
+  </div>
+
+  <!-- ═══════════ ETAPA 2: Larguras das folhas ═══════════ -->
+  <div class="painel" id="painel-2">
+
+    <div class="progresso-folhas">
+      🍃 Esta planta tem <strong id="txt-qtd-folhas">?</strong> folhas — preencha a largura de cada uma abaixo
+    </div>
+
+    <div class="folhas-grid" id="folhas-grid"></div>
+
+    <div class="area-preview-box">
+      <div class="area-preview-label">Área Foliar da Planta (calculado)</div>
+      <div class="area-preview-valor" id="area-preview-valor">—</div>
+      <div class="area-preview-unidade">cm²</div>
+      <div class="area-preview-detalhe" id="area-preview-detalhe">Preencha as larguras para calcular</div>
+    </div>
+
+    <div class="formula-hint" style="margin-bottom:14px">
+      Área por folha = 0,708 × L² − 10,44 × L + 83,4 &nbsp;·&nbsp; Área Foliar = Σ(áreas) ÷ nº de folhas
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="voltarEtapa1()">← Voltar</button>
+      <button class="btn-primary" onclick="salvar()">Salvar Planta ✓</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- GERAR EXCEL -->
+<div class="card">
+  <div class="finalizado">
+    <h2>Gerar Planilha</h2>
+    <p>Baixe a qualquer momento. O arquivo terá duas abas: dados completos e resumo por bloco.</p>
+    <button class="btn-excel" onclick="gerar()">⬇ Baixar Excel</button>
+    <button class="btn-novo" onclick="confirmarLimpar()">🗑 Reiniciar coleta</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TOTAL_FILEIRAS   = 10;
+const TOTAL_BLOCOS     = 3;
+const PLANTAS_POR_BLOCO = 10;
+
+let fileira = 1, bloco = 1, numBloco = 1;
+let dados = {};
+let etapaAtual = 1;
+
+// Dados da etapa 1 (armazenados temporariamente ao avançar para etapa 2)
+let dadosEtapa1 = null;
+
+function chave(f, b, n) { return `${f}-${b}-${n}`; }
+function rotulo(f, b)   { return `F${f}B${b}`; }
+
+// ---------- Cálculos (espelham o servidor) ----------
+
+function calcSpadPlanta(a, m, b) {
+  if (a===''||m===''||b==='') return null;
+  return ((Number(a)+Number(m)+Number(b))/3).toFixed(4);
+}
+function calcIE(de, dpoe, dpe) {
+  if (de===''||dpoe===''||dpe==='') return null;
+  de=Number(de); dpoe=Number(dpoe); dpe=Number(dpe);
+  return (((dpe-de)+((dpoe-de)+(dpoe-dpe))/2)/2).toFixed(4);
+}
+function areaFolha(l) {
+  l = Number(l);
+  return 0.708*l*l - 10.44*l + 83.4;
+}
+function calcAreaFoliar(larguras) {
+  const validos = larguras.filter(l => l !== '');
+  if (validos.length === 0) return null;
+  const soma = validos.reduce((acc, l) => acc + areaFolha(Number(l)), 0);
+  return (soma / validos.length).toFixed(4);
+}
+
+function atualizarCalcSpad() {
+  const a = document.getElementById('spadApice').value;
+  const m = document.getElementById('spadMedio').value;
+  const b = document.getElementById('spadBase').value;
+  const r = calcSpadPlanta(a,m,b);
+  document.getElementById('prev-spad-planta').textContent = r !== null ? r : '—';
+}
+function atualizarCalcIE() {
+  const de   = document.getElementById('ieDE').value;
+  const dpoe = document.getElementById('ieDPOE').value;
+  const dpe  = document.getElementById('ieDPE').value;
+  const r = calcIE(de,dpoe,dpe);
+  document.getElementById('prev-ie').textContent = r !== null ? r : '—';
+}
+
+// ---------- Init ----------
+
+async function init() {
+  const res = await fetch('/dados');
+  const json = await res.json();
+  dados = json.dados || {};
+
+  let achou = false;
+  outer: for (let f=1;f<=TOTAL_FILEIRAS;f++)
+    for (let b=1;b<=TOTAL_BLOCOS;b++)
+      for (let n=1;n<=PLANTAS_POR_BLOCO;n++)
+        if (!dados[chave(f,b,n)]) { fileira=f; bloco=b; numBloco=n; achou=true; break outer; }
+
+  if (!achou) { fileira=10; bloco=3; numBloco=10; }
+  mostrarEtapa(1);
+  atualizarUI();
+}
+
+// ---------- UI ----------
+
+function mostrarEtapa(n) {
+  etapaAtual = n;
+  document.getElementById('painel-1').classList.toggle('visivel', n===1);
+  document.getElementById('painel-2').classList.toggle('visivel', n===2);
+  document.getElementById('etapa-btn-1').className = 'etapa-btn' + (n===1?' ativa':' concluida');
+  document.getElementById('etapa-btn-2').className = 'etapa-btn' + (n===2?' ativa':(dadosEtapa1?' ':('')));
+}
+
+function atualizarUI() {
+  const total = TOTAL_FILEIRAS*TOTAL_BLOCOS*PLANTAS_POR_BLOCO;
+  const registrados = Object.keys(dados).length;
+  document.getElementById('txt-progresso').textContent = `${registrados} / ${total}`;
+  document.getElementById('barra').style.width = (registrados/total*100).toFixed(1)+'%';
+
+  document.getElementById('rotulo-pill').textContent = rotulo(fileira, bloco);
+  document.getElementById('titulo').textContent = `Planta ${numBloco}`;
+
+  const k = chave(fileira, bloco, numBloco);
+  const atual = dados[k];
+  const tag = document.getElementById('status-tag');
+
+  // Limpa campos etapa 1
+  ['altura','folhas','numCachos','spadProtocolo','spadApice','spadMedio','spadBase','ieDE','ieDPOE','ieDPE']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('prev-spad-planta').textContent = '—';
+  document.getElementById('prev-ie').textContent = '—';
+  dadosEtapa1 = null;
+
+  if (atual) {
+    tag.textContent = atual.ausente ? '⚠ Marcada como ausente' : '✏ Editando registro';
+    tag.className = 'status-tag tag-editando';
+    document.getElementById('subtitulo').textContent = atual.ausente
+      ? 'Esta planta está marcada como ausente.'
+      : 'Registro já salvo — edite se necessário.';
+
+    if (!atual.ausente) {
+      document.getElementById('altura').value        = atual.altura ?? '';
+      document.getElementById('folhas').value        = atual.folhas ?? '';
+      document.getElementById('numCachos').value     = atual.numCachos ?? '';
+      document.getElementById('spadProtocolo').value = atual.spadProtocolo ?? '';
+      document.getElementById('spadApice').value     = atual.spadApice ?? '';
+      document.getElementById('spadMedio').value     = atual.spadMedio ?? '';
+      document.getElementById('spadBase').value      = atual.spadBase ?? '';
+      document.getElementById('ieDE').value          = atual.ieDE ?? '';
+      document.getElementById('ieDPOE').value        = atual.ieDPOE ?? '';
+      document.getElementById('ieDPE').value         = atual.ieDPE ?? '';
+      atualizarCalcSpad();
+      atualizarCalcIE();
+    }
+  } else {
+    tag.textContent = 'Nova entrada';
+    tag.className = 'status-tag tag-novo';
+    document.getElementById('subtitulo').textContent = 'Preencha os dados abaixo';
+  }
+
+  mostrarEtapa(1);
+  renderizarGrid();
+  setTimeout(() => document.getElementById('altura').focus(), 50);
+}
+
+function renderizarGrid() {
+  const container = document.getElementById('grid-fileiras');
+  container.innerHTML = '';
+  for (let f=1;f<=TOTAL_FILEIRAS;f++) {
+    const row = document.createElement('div'); row.className='fileira-row';
+    const lbl = document.createElement('div'); lbl.className='fileira-label'; lbl.textContent=f; row.appendChild(lbl);
+    const bw = document.createElement('div'); bw.className='blocos-wrap';
+    for (let b=1;b<=TOTAL_BLOCOS;b++) {
+      const g = document.createElement('div'); g.className='bloco-group';
+      for (let n=1;n<=PLANTAS_POR_BLOCO;n++) {
+        const dot = document.createElement('div'); dot.className='dot';
+        const k = chave(f,b,n);
+        if (f===fileira&&b===bloco&&n===numBloco) dot.classList.add('atual');
+        else if (dados[k]) dot.classList.add(dados[k].ausente?'ausente':'registrado');
+        dot.title=`${rotulo(f,b)} · Planta ${n}`;
+        dot.onclick=()=>irPara(f,b,n);
+        g.appendChild(dot);
+      }
+      bw.appendChild(g);
+      if (b<TOTAL_BLOCOS) { const sep=document.createElement('div'); sep.className='bloco-sep'; bw.appendChild(sep); }
+    }
+    row.appendChild(bw); container.appendChild(row);
+  }
+}
+
+function irPara(f,b,n) {
+  fileira=f; bloco=b; numBloco=n;
+  atualizarUI();
+  document.getElementById('card-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ---------- Validação etapa 1 → etapa 2 ----------
+
+function irParaEtapa2() {
+  const campos = {
+    altura: document.getElementById('altura').value,
+    folhas: document.getElementById('folhas').value,
+    numCachos: document.getElementById('numCachos').value,
+    spadProtocolo: document.getElementById('spadProtocolo').value,
+    spadApice: document.getElementById('spadApice').value,
+    spadMedio: document.getElementById('spadMedio').value,
+    spadBase: document.getElementById('spadBase').value,
+    ieDE: document.getElementById('ieDE').value,
+    ieDPOE: document.getElementById('ieDPOE').value,
+    ieDPE: document.getElementById('ieDPE').value,
+  };
+
+  const faltando = Object.entries(campos).filter(([,v]) => v === '').map(([k]) => k);
+  if (faltando.length > 0) return mostrarToast('Preencha todos os campos antes de continuar');
+
+  const qtd = parseInt(campos.folhas);
+  if (!qtd || qtd < 1) return mostrarToast('Nº de folhas deve ser pelo menos 1');
+
+  dadosEtapa1 = campos;
+  construirGridFolhas(qtd);
+  mostrarEtapa(2);
+  document.getElementById('card-form').scrollIntoView({behavior:'smooth',block:'start'});
+  // foca no primeiro input de folha
+  setTimeout(() => { const f = document.querySelector('.folha-campo input'); if(f) f.focus(); }, 100);
+}
+
+function voltarEtapa1() {
+  mostrarEtapa(1);
+  document.getElementById('card-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ---------- Grid dinâmico de larguras ----------
+
+function construirGridFolhas(qtd) {
+  document.getElementById('txt-qtd-folhas').textContent = qtd;
+  const grid = document.getElementById('folhas-grid');
+  grid.innerHTML = '';
+
+  // Se já temos dados salvos, pré-popula
+  const atual = dados[chave(fileira, bloco, numBloco)];
+  const largurasSalvas = (atual && !atual.ausente && atual.largurasFolhas) || [];
+
+  for (let i = 0; i < qtd; i++) {
+    const div = document.createElement('div'); div.className='folha-campo campo';
+    const lbl = document.createElement('label'); lbl.textContent = `Folha ${i+1} (cm)`;
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.step = '0.1'; inp.min = '0';
+    inp.placeholder = 'largura';
+    inp.id = `folha-${i}`;
+    if (largurasSalvas[i] != null) inp.value = largurasSalvas[i];
+    inp.oninput = atualizarPreviewArea;
+    div.appendChild(lbl); div.appendChild(inp);
+    grid.appendChild(div);
+  }
+  atualizarPreviewArea();
+}
+
+function getLarguras() {
+  const qtd = parseInt(document.getElementById('folhas').value) || 0;
+  const vals = [];
+  for (let i = 0; i < qtd; i++) {
+    const el = document.getElementById(`folha-${i}`);
+    vals.push(el ? el.value : '');
+  }
+  return vals;
+}
+
+function atualizarPreviewArea() {
+  const larguras = getLarguras();
+  const preenchidas = larguras.filter(l => l !== '').length;
+  const total = larguras.length;
+  const area = calcAreaFoliar(larguras);
+
+  const valEl = document.getElementById('area-preview-valor');
+  const detEl = document.getElementById('area-preview-detalhe');
+
+  if (area !== null) {
+    valEl.textContent = area;
+    detEl.textContent = `${preenchidas} de ${total} folhas preenchidas · média das áreas individuais`;
+  } else {
+    valEl.textContent = '—';
+    detEl.textContent = 'Preencha as larguras para calcular';
+  }
+}
+
+// ---------- Salvar ----------
+
+async function salvar() {
+  if (!dadosEtapa1) return mostrarToast('Volte e preencha os dados da planta');
+
+  const larguras = getLarguras();
+  const qtd = parseInt(dadosEtapa1.folhas);
+  const faltando = larguras.filter(l => l === '').length;
+  if (faltando > 0) return mostrarToast(`Preencha todas as ${qtd} larguras das folhas`);
+
+  const payload = {
+    fileira, bloco, numBloco,
+    ...dadosEtapa1,
+    largurasFolhas: larguras.map(Number),
+    ausente: false
+  };
+
+  const res = await fetch('/salvar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+
+  dados[chave(fileira, bloco, numBloco)] = {
+    fileira, bloco, numBloco, ausente: false,
+    altura: Number(dadosEtapa1.altura), folhas: Number(dadosEtapa1.folhas), numCachos: Number(dadosEtapa1.numCachos),
+    spadProtocolo: Number(dadosEtapa1.spadProtocolo),
+    spadApice: Number(dadosEtapa1.spadApice), spadMedio: Number(dadosEtapa1.spadMedio), spadBase: Number(dadosEtapa1.spadBase),
+    spadPlanta: json.spadPlanta,
+    ieDE: Number(dadosEtapa1.ieDE), ieDPOE: Number(dadosEtapa1.ieDPOE), ieDPE: Number(dadosEtapa1.ieDPE),
+    ie: json.ie,
+    numCachos: Number(dadosEtapa1.numCachos),
+    largurasFolhas: larguras.map(Number),
+    areaFoliar: json.areaFoliar
+  };
+
+  mostrarToast(`${rotulo(fileira,bloco)} · Planta ${numBloco} salva! Área foliar: ${json.areaFoliar} cm²`);
+  dadosEtapa1 = null;
+  avancarProxima();
+}
+
+async function marcarAusente() {
+  await fetch('/salvar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileira, bloco, numBloco, ausente: true })
+  });
+  dados[chave(fileira,bloco,numBloco)] = { fileira, bloco, numBloco, ausente:true };
+  mostrarToast(`${rotulo(fileira,bloco)} · Planta ${numBloco} marcada como ausente`);
+  avancarProxima();
+}
+
+async function limparAtual() {
+  if (!dados[chave(fileira,bloco,numBloco)]) {
+    ['altura','folhas','numCachos','spadProtocolo','spadApice','spadMedio','spadBase','ieDE','ieDPOE','ieDPE']
+      .forEach(id => document.getElementById(id).value='');
+    document.getElementById('prev-spad-planta').textContent='—';
+    document.getElementById('prev-ie').textContent='—';
+    return;
+  }
+  if (!confirm(`Apagar registro de ${rotulo(fileira,bloco)} · Planta ${numBloco}?`)) return;
+  await fetch('/apagar', {
+    method: 'DELETE', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ fileira, bloco, numBloco })
+  });
+  delete dados[chave(fileira,bloco,numBloco)];
+  mostrarToast('Registro apagado');
+  atualizarUI();
+}
+
+function avancarProxima() {
+  outer: for (let f=1;f<=TOTAL_FILEIRAS;f++)
+    for (let b=1;b<=TOTAL_BLOCOS;b++)
+      for (let n=1;n<=PLANTAS_POR_BLOCO;n++)
+        if (!dados[chave(f,b,n)]) { fileira=f; bloco=b; numBloco=n; atualizarUI(); break outer; }
+  if (Object.keys(dados).length >= TOTAL_FILEIRAS*TOTAL_BLOCOS*PLANTAS_POR_BLOCO)
+    mostrarToast('🎉 Todas as 300 plantas foram registradas!');
+}
+
+function navAnterior() {
+  if (numBloco>1) numBloco--;
+  else if (bloco>1) { bloco--; numBloco=PLANTAS_POR_BLOCO; }
+  else if (fileira>1) { fileira--; bloco=TOTAL_BLOCOS; numBloco=PLANTAS_POR_BLOCO; }
+  atualizarUI();
+}
+function navProxima() {
+  if (numBloco<PLANTAS_POR_BLOCO) numBloco++;
+  else if (bloco<TOTAL_BLOCOS) { bloco++; numBloco=1; }
+  else if (fileira<TOTAL_FILEIRAS) { fileira++; bloco=1; numBloco=1; }
+  atualizarUI();
+}
+
+function gerar() { window.location.href='/gerar-excel'; }
+
+async function confirmarLimpar() {
+  if (!confirm('Apagar TODOS os dados e recomeçar?')) return;
+  await fetch('/limpar', { method:'POST' });
+  dados={}; fileira=1; bloco=1; numBloco=1;
+  mostrarToast('Dados apagados. Recomeçando.');
+  atualizarUI();
+}
+
+function mostrarToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Enter só na etapa 1 avança, na etapa 2 salva
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.target.tagName === 'BUTTON') return;
+  if (etapaAtual === 1) irParaEtapa2();
+  else salvar();
+});
+
+init();
+</script>
+</body>
+</html>

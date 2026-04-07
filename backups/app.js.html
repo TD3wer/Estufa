@@ -1,0 +1,134 @@
+// server.js
+// Servidor Node + ExcelJS + HTML (browser)
+
+const express = require('express');
+const ExcelJS = require('exceljs');
+const path = require('path');
+
+const app = express();
+app.use(express.json());
+app.use(express.static('public'));
+
+app.post('/gerar-excel', async (req, res) => {
+  const { fileiras, plantas } = req.body;
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Avaliação', {
+    pageSetup: { paperSize: 9, orientation: 'landscape' }
+  });
+
+  const bordaFina = {
+    top: { style: 'thin' },
+    bottom: { style: 'thin' },
+    left: { style: 'thin' },
+    right: { style: 'thin' }
+  };
+
+  const headerGrande = {
+    font: { bold: true, size: 14 },
+    alignment: { horizontal: 'center', vertical: 'middle' },
+    border: bordaFina
+  };
+
+  const header = {
+    font: { bold: true },
+    alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+    border: bordaFina
+  };
+
+  const cellPadrao = {
+    alignment: { horizontal: 'center', vertical: 'middle' },
+    border: bordaFina
+  };
+
+  // Cabeçalho
+  sheet.mergeCells(1, 1, 1, plantas + 1);
+  sheet.getCell(1, 1).value = 'AVALIAÇÃO MORFOFISIOLÓGICA – TOMATE';
+  sheet.getCell(1, 1).style = headerGrande;
+
+  sheet.mergeCells(2, 1, 2, 2);
+  sheet.getCell(2, 1).value = 'Estufa:';
+  sheet.getCell(2, 1).style = header;
+
+  sheet.mergeCells(2, 3, 2, plantas + 1);
+  sheet.getCell(2, 3).value = 'Data:';
+  sheet.getCell(2, 3).style = header;
+
+  // Cabeçalho das plantas
+  sheet.getCell(4, 1).value = 'Fileira';
+  sheet.getCell(4, 1).style = header;
+
+  for (let p = 1; p <= plantas; p++) {
+    sheet.getCell(4, p + 1).value = `Planta ${p}`;
+    sheet.getCell(4, p + 1).style = header;
+    sheet.getColumn(p + 1).width = 8;
+  }
+  sheet.getColumn(1).width = 10;
+
+  // Grade
+  for (let f = 1; f <= fileiras; f++) {
+    const row = 4 + f;
+    sheet.getCell(row, 1).value = f;
+    sheet.getCell(row, 1).style = header;
+
+    for (let p = 1; p <= plantas; p++) {
+      sheet.getCell(row, p + 1).value = '';
+      sheet.getCell(row, p + 1).style = cellPadrao;
+    }
+  }
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=avaliacao_morfofisiologica.xlsx');
+
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
+app.listen(3000, () => console.log('Servidor em http://localhost:3000'));
+
+/* =========================
+   public/index.html
+========================= */
+
+/*
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gerador de Planilha Oficial</title>
+  <style>
+    body { font-family: Arial; background:#f4f6f8; padding:20px; }
+    .box { background:#fff; padding:20px; border-radius:8px; max-width:400px; }
+    input, button { padding:8px; width:100%; margin-bottom:10px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>Gerar Planilha</h2>
+    <input type="number" id="fileiras" placeholder="Nº de Fileiras">
+    <input type="number" id="plantas" placeholder="Nº de Plantas">
+    <button onclick="gerar()">Gerar Excel</button>
+  </div>
+
+  <script>
+    async function gerar() {
+      const fileiras = Number(document.getElementById('fileiras').value);
+      const plantas = Number(document.getElementById('plantas').value);
+
+      const res = await fetch('/gerar-excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileiras, plantas })
+      });
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'avaliacao_morfofisiologica.xlsx';
+      a.click();
+    }
+  </script>
+</body>
+</html>
+*/
