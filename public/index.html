@@ -213,6 +213,102 @@
   /* Painel de etapa */
   .painel { display:none; }
   .painel.visivel { display:block; }
+
+  /* ═══════════════════════════════════════
+     RESPONSIVIDADE MOBILE
+     ═══════════════════════════════════════ */
+
+  /* Impede zoom automático no iOS ao focar input (font-size mínimo 16px) */
+  @media (max-width: 600px) {
+    input[type=number] {
+      font-size: 16px;
+      padding: 13px 14px;
+    }
+
+    body {
+      padding: 16px 12px 100px;
+    }
+
+    header h1 { font-size: 22px; }
+    header p  { font-size: 12px; }
+
+    /* Cards com menos padding */
+    .card,
+    .progresso-wrap,
+    .grid-wrap {
+      padding: 16px 14px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    /* Título da planta atual */
+    .card-titulo { font-size: 18px; }
+    .rotulo-pill { font-size: 12px; padding: 2px 10px; }
+
+    /* Etapas — texto mais curto em telas pequenas */
+    .etapa-btn { font-size: 11px; padding: 9px 4px; }
+
+    /* Grids: 2 colunas colapsam para 1 em tela muito pequena */
+    .grid-2 { grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .grid-3 { grid-template-columns: 1fr 1fr; gap: 0 10px; }
+
+    /* Seções com menos padding */
+    .secao { padding: 12px; margin-bottom: 12px; }
+
+    /* Botões maiores para toque */
+    button { padding: 14px 12px; font-size: 14px; min-height: 48px; }
+    .nav-row button { padding: 12px 8px; font-size: 13px; min-height: 44px; }
+    .btn-perigo { min-height: 44px; }
+
+    /* Mapa de plantas: dots ligeiramente maiores para toque */
+    .dot {
+      width: 15px;
+      height: 15px;
+      border-radius: 4px;
+    }
+    .blocos-wrap { gap: 4px; }
+    .bloco-group { gap: 3px; }
+
+    /* Grid de folhas: 3 colunas em vez de auto-fill */
+    .folhas-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .folha-campo input { font-size: 16px; padding: 10px 8px; }
+
+    /* Preview de área foliar */
+    .area-preview-valor { font-size: 26px; }
+
+    /* Progresso folhas — quebra em 2 linhas se necessário */
+    .progresso-folhas { flex-wrap: wrap; font-size: 12px; }
+
+    /* Formula hint — esconde em mobile para não poluir */
+    .formula-hint { font-size: 10px; }
+
+    /* Toast mais largo */
+    .toast { width: 90%; text-align: center; font-size: 13px; padding: 10px 16px; }
+
+    /* Legenda do mapa */
+    .legenda { gap: 8px; }
+    .leg-item { font-size: 10px; }
+  }
+
+  /* Telas muito pequenas (< 380px): grids para 1 coluna */
+  @media (max-width: 380px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: 1fr 1fr; }
+    .folhas-grid { grid-template-columns: repeat(2, 1fr); }
+    .dot { width: 13px; height: 13px; }
+    .bloco-group { gap: 2px; }
+    .blocos-wrap { gap: 3px; }
+    .etapa-btn { font-size: 10px; }
+  }
+
+  /* Tablets (601–900px): layout confortável, sem grandes mudanças */
+  @media (min-width: 601px) and (max-width: 900px) {
+    .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .folhas-grid { grid-template-columns: repeat(4, 1fr); }
+  }
 </style>
 </head>
 <body>
@@ -755,6 +851,82 @@ document.addEventListener('keydown', e => {
   if (etapaAtual === 1) irParaEtapa2();
   else salvar();
 });
+
+// ── Mobile: inputmode decimal garante teclado numérico com ponto/vírgula no iOS/Android
+document.querySelectorAll('input[type=number]').forEach(inp => {
+  inp.setAttribute('inputmode', 'decimal');
+});
+
+// ── Mobile: barra de ação fixa no rodapé
+function criarBarraMobile() {
+  if (window.innerWidth > 600) return;
+  if (document.getElementById('barra-mobile')) return;
+
+  const barra = document.createElement('div');
+  barra.id = 'barra-mobile';
+  barra.style.cssText = [
+    'position:fixed', 'bottom:0', 'left:0', 'right:0',
+    'background:#fff',
+    'border-top:1.5px solid #B7DFC6',
+    'padding:10px 14px env(safe-area-inset-bottom, 12px)',
+    'display:flex', 'gap:10px',
+    'z-index:200',
+    'box-shadow:0 -4px 20px rgba(45,106,79,0.12)'
+  ].join(';');
+
+  const estilo = (extra) => [
+    'font-family:DM Sans,sans-serif', 'font-weight:600',
+    'border-radius:10px', 'min-height:50px', 'cursor:pointer', extra
+  ].join(';');
+
+  const btnAnt = document.createElement('button');
+  btnAnt.textContent = '←';
+  btnAnt.setAttribute('aria-label', 'Planta anterior');
+  btnAnt.style.cssText = estilo('flex:0 0 52px;font-size:18px;background:#D8F3DC;color:#2D6A4F;border:1.5px solid #B7DFC6;');
+  btnAnt.onclick = navAnterior;
+
+  const btnAcao = document.createElement('button');
+  btnAcao.id = 'btn-mobile-acao';
+  btnAcao.style.cssText = estilo('flex:1;font-size:15px;background:#2D6A4F;color:#fff;border:none;');
+  btnAcao.onclick = () => { if (etapaAtual === 1) irParaEtapa2(); else salvar(); };
+
+  const btnProx = document.createElement('button');
+  btnProx.textContent = '→';
+  btnProx.setAttribute('aria-label', 'Próxima planta');
+  btnProx.style.cssText = estilo('flex:0 0 52px;font-size:18px;background:#D8F3DC;color:#2D6A4F;border:1.5px solid #B7DFC6;');
+  btnProx.onclick = navProxima;
+
+  barra.appendChild(btnAnt);
+  barra.appendChild(btnAcao);
+  barra.appendChild(btnProx);
+  document.body.appendChild(barra);
+
+  atualizarTextoBtnMobile();
+}
+
+function atualizarTextoBtnMobile() {
+  const btn = document.getElementById('btn-mobile-acao');
+  if (!btn) return;
+  btn.textContent = etapaAtual === 1 ? 'Próximo: Larguras →' : 'Salvar Planta ✓';
+}
+
+// Patch em mostrarEtapa para atualizar a barra mobile junto
+const _mostrarEtapa = mostrarEtapa;
+mostrarEtapa = function(n) {
+  _mostrarEtapa(n);
+  atualizarTextoBtnMobile();
+};
+
+// inputmode nos inputs de folhas criados dinamicamente
+const _construirGridFolhas = construirGridFolhas;
+construirGridFolhas = function(qtd) {
+  _construirGridFolhas(qtd);
+  document.querySelectorAll('.folha-campo input').forEach(inp => {
+    inp.setAttribute('inputmode', 'decimal');
+  });
+};
+
+window.addEventListener('load', criarBarraMobile);
 
 init();
 </script>
