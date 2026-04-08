@@ -1,0 +1,14 @@
+{
+  "background_color": "#8eb866",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "Estufa",
+  "orientation": "portrait",
+  "scope": "https://web-production-681c9.up.railway.app",
+  "short_name": "Estufa",
+  "start_url": "https://web-production-681c9.up.railway.app",
+  "theme_color": "#46af69",
+  "id": "Estufa",
+  "description": "App de Estufa para um professor do IFC",
+  "lang": "pt"
+}
