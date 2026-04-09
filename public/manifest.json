@@ -1,0 +1,28 @@
+{
+  "background_color": "#8eb866",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "Phytogestor",
+  "orientation": "portrait",
+  "scope": "https://web-production-681c9.up.railway.app",
+  "short_name": "Phytogestor",
+  "start_url": "https://web-production-681c9.up.railway.app",
+  "theme_color": "#46af69",
+  "id": "Phytogestor",
+  "description": "Sistema de coleta de dados morfofisiológicos",
+  "lang": "pt",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
