@@ -14,8 +14,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#46af69">
 
-<!-- SheetJS: geração de Excel direto no navegador, sem servidor -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- ExcelJS: geração de Excel formatado (cores, bordas) direto no navegador -->
+<script src="https://unpkg.com/exceljs/dist/exceljs.min.js"></script>
 
 <style>
   :root {
@@ -936,83 +936,233 @@ async function confirmarLimpar() {
 // ════════════════════════════════════════════════
 // GERAÇÃO DE EXCEL COM SHEETJS (funciona offline)
 // ════════════════════════════════════════════════
-function gerarExcel() {
-  const wb = XLSX.utils.book_new();
+async function gerarExcel() {
+  mostrarToast('Gerando planilha...');
 
-  // ── ABA 1: Dados completos ──────────────────
-  const cab1 = [
-    'Fileira e Bloco','Nº da Planta','Altura (m)','Nº de Folhas',
-    'SPAD Protocolo','SPAD Ápice','SPAD Médio','SPAD Base','SPAD Planta*',
-    'IE - DE (mm)','IE - DPOE (mm)','IE - DPE (mm)','IE*',
-    'Nº de Cachos','Área Foliar (cm²)*','Observação'
+  // Aguarda o ExcelJS estar disponível (pode estar carregando ainda)
+  if (typeof ExcelJS === 'undefined') {
+    mostrarToast('Aguarde, carregando biblioteca...');
+    await new Promise(r => setTimeout(r, 800));
+    if (typeof ExcelJS === 'undefined') {
+      mostrarToast('Erro: biblioteca não carregada. Verifique sua conexão.');
+      return;
+    }
+  }
+
+  const workbook = new ExcelJS.Workbook();
+
+  // ── Estilos reutilizáveis ───────────────────
+  const borda = {
+    top:    { style: 'thin' },
+    bottom: { style: 'thin' },
+    left:   { style: 'thin' },
+    right:  { style: 'thin' }
+  };
+
+  // Cores dos grupos de cabeçalho (igual ao servidor)
+  const coresHeader = [
+    'FF2D6A4F','FF2D6A4F',                               // bloco/planta
+    'FF40916C','FF40916C',                               // dados gerais
+    'FF1B7A4A','FF1B7A4A','FF1B7A4A','FF1B7A4A','FF52B788', // SPAD
+    'FF2D6A4F','FF2D6A4F','FF2D6A4F','FF52B788',           // IE
+    'FF40916C',                                           // cachos
+    'FF52B788',                                           // área foliar*
+    'FF2D6A4F'                                            // obs
   ];
 
-  const linhas1 = [cab1];
-  for (let f=1;f<=TOTAL_FILEIRAS;f++) {
-    for (let b=1;b<=TOTAL_BLOCOS;b++) {
-      for (let n=1;n<=PLANTAS_POR_BLOCO;n++) {
-        const r = dados[chave(f,b,n)];
+  function estiloHeader(bgArgb) {
+    return {
+      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } },
+      alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+      border: borda
+    };
+  }
+
+  const estiloNormal = {
+    alignment: { horizontal: 'center', vertical: 'middle' },
+    border: borda
+  };
+
+  const estiloCalc = {
+    alignment: { horizontal: 'center', vertical: 'middle' },
+    border: borda,
+    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } },
+    font: { italic: true }
+  };
+
+  const estiloAusente = {
+    alignment: { horizontal: 'center', vertical: 'middle' },
+    border: borda,
+    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } },
+    font: { italic: true, color: { argb: 'FF856404' } }
+  };
+
+  const estiloMedia = {
+    alignment: { horizontal: 'center', vertical: 'middle' },
+    border: borda
+  };
+
+  const estiloMediaCalc = {
+    alignment: { horizontal: 'center', vertical: 'middle' },
+    border: borda,
+    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } }
+  };
+
+  // ════════════════════════════════════════════
+  // ABA 1 — Avaliação Morfofisiológica
+  // ════════════════════════════════════════════
+  const sheet1 = workbook.addWorksheet('Avaliação Morfofisiológica');
+
+  const headers1 = [
+    'Fileira e Bloco', 'Nº da Planta', 'Altura (m)', 'Nº de Folhas',
+    'SPAD Protocolo', 'SPAD Ápice', 'SPAD Médio', 'SPAD Base', 'SPAD Planta*',
+    'IE - DE (mm)', 'IE - DPOE (mm)', 'IE - DPE (mm)', 'IE*',
+    'Nº de Cachos', 'Área Foliar (cm²)*', 'Observação'
+  ];
+  const larguras1 = [16,13,12,13,16,13,13,13,14,14,16,14,12,13,18,18];
+
+  // Cabeçalho
+  headers1.forEach((h, i) => {
+    const cell = sheet1.getCell(1, i + 1);
+    cell.value = h;
+    cell.style = estiloHeader(coresHeader[i]);
+    sheet1.getColumn(i + 1).width = larguras1[i];
+  });
+  sheet1.getRow(1).height = 38;
+
+  // Dados
+  let row1 = 2;
+  for (let f = 1; f <= TOTAL_FILEIRAS; f++) {
+    for (let b = 1; b <= TOTAL_BLOCOS; b++) {
+      for (let n = 1; n <= PLANTAS_POR_BLOCO; n++) {
+        const r = dados[chave(f, b, n)];
+
+        sheet1.getCell(row1, 1).value = rotulo(f, b);
+        sheet1.getCell(row1, 2).value = n;
+
         if (!r) {
-          linhas1.push([rotulo(f,b),n,'-','-','-','-','-','-','-','-','-','-','-','-','-','Não registrado']);
+          // Não registrado
+          for (let c = 3; c <= 15; c++) sheet1.getCell(row1, c).value = '-';
+          sheet1.getCell(row1, 16).value = 'Não registrado';
+          for (let c = 1; c <= 16; c++) sheet1.getCell(row1, c).style = estiloNormal;
+
         } else if (r.ausente) {
-          linhas1.push([rotulo(f,b),n,'-','-','-','-','-','-','-','-','-','-','-','-','-','Ausente']);
+          for (let c = 3; c <= 15; c++) sheet1.getCell(row1, c).value = '-';
+          sheet1.getCell(row1, 16).value = 'Ausente';
+          for (let c = 1; c <= 16; c++) sheet1.getCell(row1, c).style = estiloAusente;
+
         } else {
-          linhas1.push([
-            rotulo(f,b), n,
-            r.altura, r.folhas,
-            r.spadProtocolo, r.spadApice, r.spadMedio, r.spadBase, r.spadPlanta,
-            r.ieDE, r.ieDPOE, r.ieDPE, r.ie,
-            r.numCachos, r.areaFoliar, ''
-          ]);
+          // Colunas manuais (3–8)
+          const manuais = [r.altura, r.folhas, r.spadProtocolo, r.spadApice, r.spadMedio, r.spadBase];
+          manuais.forEach((v, i) => {
+            sheet1.getCell(row1, 3 + i).value = v ?? '-';
+            sheet1.getCell(row1, 3 + i).style = estiloNormal;
+          });
+          // SPAD Planta* col 9
+          sheet1.getCell(row1, 9).value = r.spadPlanta ?? '-';
+          sheet1.getCell(row1, 9).style = estiloCalc;
+          // IE manuais cols 10–12
+          [r.ieDE, r.ieDPOE, r.ieDPE].forEach((v, i) => {
+            sheet1.getCell(row1, 10 + i).value = v ?? '-';
+            sheet1.getCell(row1, 10 + i).style = estiloNormal;
+          });
+          // IE* col 13
+          sheet1.getCell(row1, 13).value = r.ie ?? '-';
+          sheet1.getCell(row1, 13).style = estiloCalc;
+          // Cachos col 14
+          sheet1.getCell(row1, 14).value = r.numCachos ?? '-';
+          sheet1.getCell(row1, 14).style = estiloNormal;
+          // Área Foliar* col 15
+          sheet1.getCell(row1, 15).value = r.areaFoliar ?? '-';
+          sheet1.getCell(row1, 15).style = estiloCalc;
+          // Obs col 16
+          sheet1.getCell(row1, 16).value = '';
+          sheet1.getCell(row1, 16).style = estiloNormal;
+          // Cols 1–2
+          sheet1.getCell(row1, 1).style = estiloNormal;
+          sheet1.getCell(row1, 2).style = estiloNormal;
         }
+        row1++;
       }
     }
   }
-  linhas1.push([]);
-  linhas1.push(['* SPAD Planta = (Ápice+Médio+Base)/3 | IE = {(DPE-DE)+[(DPOE-DE)+(DPOE-DPE)]/2}/2 | Área Foliar = média de [0,708·L²−10,44·L+83,4]']);
 
-  const ws1 = XLSX.utils.aoa_to_sheet(linhas1);
+  // Nota de rodapé
+  row1++;
+  const nota1 = sheet1.getCell(row1, 1);
+  nota1.value = '* Calculado automaticamente — SPAD Planta: (Ápice+Médio+Base)/3 | IE: {(DPE-DE)+[(DPOE-DE)+(DPOE-DPE)]/2}/2 | Área Foliar: média de [0,708·L²−10,44·L+83,4] para cada folha';
+  nota1.font = { italic: true, size: 9, color: { argb: 'FF555555' } };
+  sheet1.mergeCells(row1, 1, row1, 16);
 
-  // Larguras das colunas
-  ws1['!cols'] = [16,13,12,13,16,13,13,13,14,14,16,14,12,13,18,18].map(w=>({wch:w}));
+  // ════════════════════════════════════════════
+  // ABA 2 — Resumo por Bloco
+  // ════════════════════════════════════════════
+  const sheet2 = workbook.addWorksheet('Resumo por Bloco');
 
-  XLSX.utils.book_append_sheet(wb, ws1, 'Avaliação Morfofisiológica');
-
-  // ── ABA 2: Resumo por bloco ─────────────────
-  const cab2 = [
+  const headers2 = [
     'Fileira e Bloco',
-    'Média Altura (m)','Média Nº Folhas',
-    'Média SPAD Protocolo','Média SPAD Ápice','Média SPAD Médio',
-    'Média SPAD Base','Média SPAD Planta',
-    'Média IE','Média Nº Cachos','Média Área Foliar (cm²)'
+    'Média Altura (m)', 'Média Nº Folhas',
+    'Média SPAD Protocolo', 'Média SPAD Ápice', 'Média SPAD Médio',
+    'Média SPAD Base', 'Média SPAD Planta',
+    'Média IE', 'Média Nº Cachos', 'Média Área Foliar (cm²)'
   ];
-  const campos = ['altura','folhas','spadProtocolo','spadApice','spadMedio','spadBase','spadPlanta','ie','numCachos','areaFoliar'];
+  const larguras2 = [16,18,16,22,18,18,18,18,14,18,22];
 
-  const linhas2 = [cab2];
-  for (let f=1;f<=TOTAL_FILEIRAS;f++) {
-    for (let b=1;b<=TOTAL_BLOCOS;b++) {
+  headers2.forEach((h, i) => {
+    const cell = sheet2.getCell(1, i + 1);
+    cell.value = h;
+    cell.style = estiloHeader('FF2D6A4F');
+    sheet2.getColumn(i + 1).width = larguras2[i];
+  });
+  sheet2.getRow(1).height = 38;
+
+  const camposMedia = ['altura','folhas','spadProtocolo','spadApice','spadMedio','spadBase','spadPlanta','ie','numCachos','areaFoliar'];
+  const camposCalc  = new Set(['spadPlanta','ie','areaFoliar']);
+
+  let row2 = 2;
+  for (let f = 1; f <= TOTAL_FILEIRAS; f++) {
+    for (let b = 1; b <= TOTAL_BLOCOS; b++) {
       const plantas = [];
-      for (let n=1;n<=PLANTAS_POR_BLOCO;n++) {
-        const r=dados[chave(f,b,n)];
-        if (r&&!r.ausente) plantas.push(r);
+      for (let n = 1; n <= PLANTAS_POR_BLOCO; n++) {
+        const r = dados[chave(f, b, n)];
+        if (r && !r.ausente) plantas.push(r);
       }
       const media = campo => {
-        const vals=plantas.map(p=>p[campo]).filter(v=>v!=null&&!isNaN(v));
+        const vals = plantas.map(p => p[campo]).filter(v => v != null && !isNaN(v));
         if (!vals.length) return '-';
-        return Number((vals.reduce((a,v)=>a+v,0)/vals.length).toFixed(4));
+        return Number((vals.reduce((a, v) => a + v, 0) / vals.length).toFixed(4));
       };
-      linhas2.push([rotulo(f,b), ...campos.map(c=>media(c))]);
+
+      sheet2.getCell(row2, 1).value = rotulo(f, b);
+      sheet2.getCell(row2, 1).style = estiloMedia;
+
+      camposMedia.forEach((campo, i) => {
+        const v = media(campo);
+        sheet2.getCell(row2, 2 + i).value = v;
+        sheet2.getCell(row2, 2 + i).style = camposCalc.has(campo) ? estiloMediaCalc : estiloMedia;
+      });
+      row2++;
     }
   }
-  linhas2.push([]);
-  linhas2.push(['Médias calculadas somente com plantas registradas (ausentes e não registradas são excluídas).']);
 
-  const ws2 = XLSX.utils.aoa_to_sheet(linhas2);
-  ws2['!cols'] = [16,18,16,22,18,18,18,18,14,18,22].map(w=>({wch:w}));
-  XLSX.utils.book_append_sheet(wb, ws2, 'Resumo por Bloco');
+  // Nota de rodapé aba 2
+  row2++;
+  const nota2 = sheet2.getCell(row2, 1);
+  nota2.value = 'Médias calculadas somente com plantas registradas (ausentes e não registradas são excluídas do cálculo).';
+  nota2.font = { italic: true, size: 9, color: { argb: 'FF555555' } };
+  sheet2.mergeCells(row2, 1, row2, 11);
 
-  // Dispara o download
-  XLSX.writeFile(wb, 'avaliacao_morfofisiologica.xlsx');
+  // ── Gera o arquivo e dispara o download ────
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url    = URL.createObjectURL(blob);
+  const a      = document.createElement('a');
+  a.href       = url;
+  a.download   = 'avaliacao_morfofisiologica.xlsx';
+  a.click();
+  URL.revokeObjectURL(url);
+  mostrarToast('✅ Planilha gerada com sucesso!');
 }
 
 // ════════════════════════════════════════════════

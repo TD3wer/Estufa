@@ -1,5 +1,5 @@
-// sw.js — Phytogestor v3 (offline completo)
-const CACHE = 'phytogestor-v3';
+// sw.js — Phytogestor v4 (offline completo + ExcelJS formatado)
+const CACHE = 'phytogestor-v4';
 
 const ASSETS = [
   '/',
@@ -9,8 +9,8 @@ const ASSETS = [
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',
   '/icons/favicon.ico',
-  // SheetJS — necessário para geração de Excel offline
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  // ExcelJS — necessário para geração de Excel formatado offline
+  'https://unpkg.com/exceljs/dist/exceljs.min.js',
   // Fontes Google
   'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap',
 ];
