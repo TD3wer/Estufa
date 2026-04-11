@@ -1,8 +1,7 @@
-// sw.js — Phytogestor
-// Estratégia: Cache-first para assets estáticos, Network-first para API
-const CACHE = 'phytogestor-v2';
+// sw.js — Phytogestor v3 (offline completo)
+const CACHE = 'phytogestor-v3';
 
-const ASSETS_ESTATICOS = [
+const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
@@ -10,29 +9,23 @@ const ASSETS_ESTATICOS = [
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',
   '/icons/favicon.ico',
-  // Fontes do Google (pré-cache via fetch no install)
-];
-
-// Fontes do Google Fonts — cacheadas separadamente pois são cross-origin
-const FONTES = [
+  // SheetJS — necessário para geração de Excel offline
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  // Fontes Google
   'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap',
 ];
 
-// ── INSTALL: pré-carrega todos os assets estáticos
+// ── INSTALL: pré-cacheia tudo
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(async cache => {
-      // Assets locais
-      await cache.addAll(ASSETS_ESTATICOS);
-      // Fontes: busca e cacheia (cross-origin, não pode usar addAll diretamente)
-      await Promise.allSettled(
-        FONTES.map(url =>
-          fetch(url, { mode: 'cors' })
-            .then(res => { if (res.ok) cache.put(url, res); })
-            .catch(() => {}) // se falhar (offline no install) ignora
+    caches.open(CACHE).then(cache =>
+      // addAll falha se um item falhar; usamos allSettled para ser tolerante a falhas de rede
+      Promise.allSettled(
+        ASSETS.map(url =>
+          cache.add(url).catch(err => console.warn('Cache falhou para:', url, err))
         )
-      );
-    })
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -47,17 +40,17 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// ── FETCH: decide estratégia por tipo de requisição
+// ── FETCH: estratégia por tipo de recurso
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // 1. Requisições de API → sempre vai para a rede (nunca cacheia)
+  // 1. Rotas de API → rede direta, sem cache
   const rotasAPI = ['/salvar', '/dados', '/gerar-excel', '/apagar', '/limpar'];
   if (rotasAPI.some(r => url.pathname.startsWith(r))) {
     e.respondWith(
       fetch(e.request).catch(() =>
         new Response(
-          JSON.stringify({ erro: 'Sem conexão. Dados não puderam ser salvos.' }),
+          JSON.stringify({ erro: 'offline' }),
           { status: 503, headers: { 'Content-Type': 'application/json' } }
         )
       )
@@ -65,12 +58,11 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // 2. Navegação (HTML) → Network-first com fallback para cache
+  // 2. Navegação (HTML) → Network-first, fallback para cache
   if (e.request.mode === 'navigate') {
     e.respondWith(
       fetch(e.request)
         .then(res => {
-          // Atualiza cache com versão mais recente
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
           return res;
@@ -80,23 +72,19 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // 3. Fontes e assets estáticos → Cache-first
+  // 3. Tudo mais (JS, fontes, imagens) → Cache-first, atualiza em background
   e.respondWith(
     caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      // Não está no cache, busca na rede e guarda
-      return fetch(e.request).then(res => {
+      const fetchPromise = fetch(e.request).then(res => {
         if (res && res.status === 200) {
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
         }
         return res;
-      }).catch(() => {
-        // Se for uma imagem e não tiver cache, retorna resposta vazia
-        if (e.request.destination === 'image') {
-          return new Response('', { status: 404 });
-        }
-      });
+      }).catch(() => null);
+
+      // Retorna cache imediatamente se existir, senão espera a rede
+      return cached || fetchPromise;
     })
   );
 });

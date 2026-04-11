@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Phytogestor</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-
-<!-- ✅ CAMINHOS CORRETOS: sem "public/" pois o Express já serve a pasta public/ na raiz -->
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/png" href="/icons/favicon-96x96.png" sizes="96x96">
 <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg">
@@ -15,6 +13,9 @@
 <meta name="apple-mobile-web-app-title" content="Phytogestor">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#46af69">
+
+<!-- SheetJS: geração de Excel direto no navegador, sem servidor -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
   :root {
@@ -46,9 +47,39 @@
     color: var(--texto);
   }
 
-  header { text-align: center; margin-bottom: 24px; }
+  header { text-align: center; margin-bottom: 20px; }
   header h1 { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--verde); }
   header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  /* BANNER DE STATUS ONLINE/OFFLINE */
+  .status-banner {
+    width: 100%; max-width: 580px;
+    border-radius: 10px; padding: 8px 14px; margin-bottom: 12px;
+    font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.3s, color 0.3s;
+  }
+  .status-banner.online  { background: #D8F3DC; color: #1B5E20; border: 1px solid #A5D6A7; }
+  .status-banner.offline { background: #FFF3CD; color: #856404; border: 1px solid #F0C280; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-banner.online  .status-dot { background: #2D6A4F; }
+  .status-banner.offline .status-dot { background: #F4A261; }
+
+  /* BANNER DE SINCRONIZAÇÃO PENDENTE */
+  .sync-banner {
+    width: 100%; max-width: 580px;
+    background: #EDE7F6; border: 1px solid #CE93D8; color: #4A148C;
+    border-radius: 10px; padding: 8px 14px; margin-bottom: 12px;
+    font-size: 12px; font-weight: 600;
+    display: none; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .sync-banner.visivel { display: flex; }
+  .btn-sync {
+    background: #7B1FA2; color: #fff; border: none;
+    border-radius: 8px; padding: 5px 12px; font-size: 12px;
+    font-weight: 700; font-family: 'DM Sans', sans-serif;
+    cursor: pointer; flex-shrink: 0; min-height: unset;
+  }
 
   /* PROGRESSO */
   .progresso-wrap {
@@ -62,50 +93,31 @@
   .barra-bg { width:100%; height:9px; background:var(--verde-suave); border-radius:99px; overflow:hidden; }
   .barra-fill { height:100%; background:linear-gradient(90deg,var(--verde),var(--verde-claro)); border-radius:99px; transition:width 0.5s ease; width:0%; }
 
-  /* GRID MAPA DE PLANTAS */
+  /* GRID MAPA */
   .grid-wrap {
     width:100%; max-width:580px;
     background:var(--card); border:1px solid var(--borda);
     border-radius:14px; padding:14px 16px; margin-bottom:16px;
-    /* ✅ Impede qualquer overflow lateral */
     overflow: hidden;
   }
   .grid-titulo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); margin-bottom:10px; }
   .fileiras-lista { display:flex; flex-direction:column; gap:4px; }
-  .fileira-row {
-    display:flex; align-items:center; gap:4px;
-    /* ✅ Garante que a linha não excede o pai */
-    min-width: 0;
-    overflow: hidden;
-  }
+  .fileira-row { display:flex; align-items:center; gap:4px; min-width:0; overflow:hidden; }
   .fileira-label { font-size:11px; font-weight:600; color:var(--muted); width:16px; flex-shrink:0; text-align:right; }
-  .blocos-wrap {
-    display:flex; gap:4px;
-    min-width: 0;
-    overflow: hidden;
-    /* ✅ Permite que os blocos encolham junto com a tela */
-    flex-shrink: 1;
-  }
+  .blocos-wrap { display:flex; gap:4px; min-width:0; overflow:hidden; flex-shrink:1; }
   .bloco-group { display:flex; gap:2px; flex-shrink:1; }
   .bloco-sep { width:1px; background:var(--borda); margin:0 1px; flex-shrink:0; }
-
-  /* ✅ Dots: tamanho usando clamp() — escala fluido entre telas */
   .dot {
-    /* mínimo 10px, ideal ~1.9vw, máximo 13px */
-    width:  clamp(10px, 1.9vw, 13px);
-    height: clamp(10px, 1.9vw, 13px);
-    border-radius: 3px;
-    background:#E8F5EC; border:1px solid #C5E0CC;
-    cursor:pointer;
-    transition:transform 0.1s, background 0.2s;
-    flex-shrink: 0;
+    width: clamp(10px, 1.9vw, 13px); height: clamp(10px, 1.9vw, 13px);
+    border-radius:3px; background:#E8F5EC; border:1px solid #C5E0CC;
+    cursor:pointer; transition:transform 0.1s,background 0.2s; flex-shrink:0;
   }
   .dot:hover { transform:scale(1.3); }
   .dot.registrado { background:var(--verde); border-color:var(--verde); }
   .dot.ausente { background:var(--amarelo); border-color:#D4893A; }
   .dot.atual { background:#fff; border:2px solid var(--verde); box-shadow:0 0 0 2px #B7DFC6; }
-
-  .legenda { display:flex; gap:12px; margin-top:8px; flex-wrap:wrap; }
+  .dot.pendente-sync { background:#CE93D8; border-color:#AB47BC; } /* salvo local, não sincronizado */
+  .legenda { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
   .leg-item { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--muted); }
   .leg-dot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
 
@@ -118,10 +130,7 @@
   }
 
   /* ETAPAS */
-  .etapas-bar {
-    display:flex; margin-bottom:20px;
-    border:1px solid var(--borda); border-radius:10px; overflow:hidden;
-  }
+  .etapas-bar { display:flex; margin-bottom:20px; border:1px solid var(--borda); border-radius:10px; overflow:hidden; }
   .etapa-btn {
     flex:1; padding:10px 8px; text-align:center;
     font-size:12px; font-weight:600; color:var(--muted);
@@ -149,17 +158,13 @@
   input[type=number] {
     width:100%; padding:10px 12px;
     border:1.5px solid var(--borda); border-radius:9px;
-    font-size:16px; /* ✅ 16px mínimo evita zoom automático no iOS */
-    font-family:'DM Sans',sans-serif;
+    font-size:16px; font-family:'DM Sans',sans-serif;
     background:var(--bg); color:var(--texto);
-    transition:border-color 0.2s,box-shadow 0.2s; outline:none;
-    /* ✅ Impede que inputs estourem o card em mobile */
-    max-width: 100%;
+    transition:border-color 0.2s,box-shadow 0.2s; outline:none; max-width:100%;
   }
   input[type=number]:focus {
     border-color:var(--verde-claro);
-    box-shadow:0 0 0 3px rgba(64,145,108,0.15);
-    background:#fff;
+    box-shadow:0 0 0 3px rgba(64,145,108,0.15); background:#fff;
   }
 
   .calc-box {
@@ -172,41 +177,26 @@
   .formula-hint { font-size:11px; color:var(--muted); margin-top:4px; font-style:italic; }
 
   /* LARGURAS DAS FOLHAS */
-  .folhas-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    gap: 8px;
-    margin-bottom: 14px;
-  }
+  .folhas-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:8px; margin-bottom:14px; }
   .folha-campo label { font-size:11px; color:var(--muted); margin-bottom:3px; }
   .folha-campo input { font-size:16px; padding:10px 8px; }
 
   .area-preview-box {
-    background: linear-gradient(135deg, var(--verde-calc), #C8E6C9);
-    border: 2px solid var(--calc-borda);
-    border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 14px;
+    background:linear-gradient(135deg,var(--verde-calc),#C8E6C9);
+    border:2px solid var(--calc-borda);
+    border-radius:12px; padding:16px; text-align:center; margin-bottom:14px;
   }
   .area-preview-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); margin-bottom:4px; }
   .area-preview-valor { font-family:'DM Serif Display',serif; font-size:32px; color:var(--verde); }
   .area-preview-unidade { font-size:13px; color:var(--muted); margin-top:2px; }
   .area-preview-detalhe { font-size:11px; color:var(--muted); margin-top:6px; font-style:italic; }
 
-  .progresso-folhas {
-    display:flex; align-items:center; gap:8px; margin-bottom:12px;
-    background:var(--bg); border:1px solid var(--borda); border-radius:8px; padding:8px 12px;
-    font-size:13px; color:var(--muted); flex-wrap:wrap;
-  }
+  .progresso-folhas { display:flex; align-items:center; gap:8px; margin-bottom:12px; background:var(--bg); border:1px solid var(--borda); border-radius:8px; padding:8px 12px; font-size:13px; color:var(--muted); flex-wrap:wrap; }
   .progresso-folhas strong { color:var(--verde); }
 
   /* Botões */
   .btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; }
-  button {
-    flex:1; min-width:100px; padding:12px 16px;
-    border:none; border-radius:10px;
-    font-size:15px; font-weight:600; font-family:'DM Sans',sans-serif;
-    cursor:pointer; transition:opacity 0.15s,transform 0.1s;
-    -webkit-tap-highlight-color: transparent;
-  }
+  button { flex:1; min-width:100px; padding:12px 16px; border:none; border-radius:10px; font-size:15px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; transition:opacity 0.15s,transform 0.1s; -webkit-tap-highlight-color:transparent; }
   button:active { transform:scale(0.97); }
   .btn-primary { background:var(--verde); color:#fff; }
   .btn-primary:hover { background:var(--verde-claro); }
@@ -239,86 +229,53 @@
     transform:translateX(-50%) translateY(20px);
     background:var(--verde); color:#fff;
     padding:10px 22px; border-radius:99px;
-    font-size:14px; font-weight:500; white-space:nowrap;
+    font-size:14px; font-weight:500;
     opacity:0; transition:opacity 0.3s,transform 0.3s;
     pointer-events:none; z-index:999;
-    max-width: 92vw; text-align: center; white-space: normal;
+    max-width:92vw; text-align:center; white-space:normal;
   }
   .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
   .painel { display:none; }
   .painel.visivel { display:block; }
 
-  /* ═══════════════════════════════════════════════
-     RESPONSIVIDADE — S25 FE e Android em geral
-     Largura lógica do S25 FE: ~412px
-     ═══════════════════════════════════════════════ */
-
+  /* ── RESPONSIVIDADE ── */
   @media (max-width: 480px) {
-    body { padding: 14px 10px 90px; }
-
-    header h1 { font-size: 21px; }
-    header p  { font-size: 11px; }
-
-    .card, .progresso-wrap, .grid-wrap {
-      padding: 14px 12px;
-      border-radius: 12px;
-      margin-bottom: 10px;
-    }
-
-    /* ✅ Grid de plantas: padding zero, overflow garantido */
-    .grid-wrap { padding: 12px 10px; }
-
-    .card-titulo { font-size: 17px; }
-    .rotulo-pill { font-size: 11px; padding: 2px 9px; margin-right: 5px; }
-
-    .etapa-btn { font-size: 11px; padding: 8px 4px; }
-
-    /* Inputs */
-    input[type=number] { padding: 12px 10px; font-size: 16px; }
-
-    /* Grids de campos: 2 colunas em telas médias */
-    .grid-2 { grid-template-columns: 1fr 1fr; gap: 0 8px; }
-    .grid-3 { grid-template-columns: 1fr 1fr; gap: 0 8px; }
-
-    .secao { padding: 11px 10px; margin-bottom: 10px; }
-
-    /* Botões com área de toque adequada (min 48px) */
-    button { padding: 13px 10px; font-size: 14px; min-height: 48px; }
-    .nav-row button { padding: 11px 6px; font-size: 12px; min-height: 44px; }
-    .btn-perigo { min-height: 44px; font-size: 12px; }
-    .btn-ausente { padding: 12px; font-size: 14px; }
-
-    /* Grid de folhas: 3 colunas */
-    .folhas-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    .folha-campo input { font-size: 16px; padding: 10px 6px; }
-
-    /* Preview área foliar */
-    .area-preview-valor { font-size: 26px; }
-
-    /* Toast não fica atrás da barra mobile */
-    .toast { bottom: 76px; font-size: 12px; padding: 9px 14px; }
-
-    /* Legenda */
-    .legenda { gap: 8px; }
-    .leg-item { font-size: 10px; }
-    .formula-hint { font-size: 10px; }
+    body { padding:14px 10px 90px; }
+    header h1 { font-size:21px; }
+    header p { font-size:11px; }
+    .card,.progresso-wrap,.grid-wrap { padding:14px 12px; border-radius:12px; margin-bottom:10px; }
+    .grid-wrap { padding:12px 10px; }
+    .card-titulo { font-size:17px; }
+    .rotulo-pill { font-size:11px; padding:2px 9px; margin-right:5px; }
+    .etapa-btn { font-size:11px; padding:8px 4px; }
+    input[type=number] { padding:12px 10px; }
+    .grid-2 { grid-template-columns:1fr 1fr; gap:0 8px; }
+    .grid-3 { grid-template-columns:1fr 1fr; gap:0 8px; }
+    .secao { padding:11px 10px; margin-bottom:10px; }
+    button { padding:13px 10px; font-size:14px; min-height:48px; }
+    .nav-row button { padding:11px 6px; font-size:12px; min-height:44px; }
+    .btn-perigo { min-height:44px; font-size:12px; }
+    .btn-ausente { padding:12px; font-size:14px; }
+    .folhas-grid { grid-template-columns:repeat(3,1fr); gap:6px; }
+    .folha-campo input { font-size:16px; padding:10px 6px; }
+    .area-preview-valor { font-size:26px; }
+    .toast { bottom:76px; font-size:12px; padding:9px 14px; }
+    .legenda { gap:8px; }
+    .leg-item { font-size:10px; }
+    .formula-hint { font-size:10px; }
   }
-
-  /* Telas muito pequenas ≤ 360px (Galaxy A series, etc.) */
   @media (max-width: 360px) {
-    body { padding: 12px 8px 90px; }
-    .card, .progresso-wrap, .grid-wrap { padding: 12px 8px; }
-    .grid-2 { grid-template-columns: 1fr; }
-    .grid-3 { grid-template-columns: 1fr 1fr; gap: 0 6px; }
-    .folhas-grid { grid-template-columns: repeat(2, 1fr); }
-    .etapa-btn { font-size: 10px; padding: 8px 2px; }
+    body { padding:12px 8px 90px; }
+    .card,.progresso-wrap,.grid-wrap { padding:12px 8px; }
+    .grid-2 { grid-template-columns:1fr; }
+    .grid-3 { grid-template-columns:1fr 1fr; gap:0 6px; }
+    .folhas-grid { grid-template-columns:repeat(2,1fr); }
+    .etapa-btn { font-size:10px; padding:8px 2px; }
   }
-
-  /* Tablets e desktop: sem a barra mobile */
   @media (min-width: 601px) {
-    .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
-    .folhas-grid { grid-template-columns: repeat(4, 1fr); }
+    .grid-3 { grid-template-columns:1fr 1fr 1fr; }
+    .folhas-grid { grid-template-columns:repeat(4,1fr); }
   }
 </style>
 </head>
@@ -328,6 +285,18 @@
   <h1>🌿 Phytogestor</h1>
   <p>Avaliação morfofisiológica · 10 fileiras · 3 blocos · 10 plantas = 300 plantas</p>
 </header>
+
+<!-- Banner online/offline -->
+<div class="status-banner online" id="status-banner">
+  <div class="status-dot"></div>
+  <span id="status-texto">Online — dados sincronizados com o servidor</span>
+</div>
+
+<!-- Banner de sincronização pendente -->
+<div class="sync-banner" id="sync-banner">
+  <span>📡 Você tem dados salvos offline. Sincronize com o servidor.</span>
+  <button class="btn-sync" onclick="sincronizarComServidor()">Sincronizar</button>
+</div>
 
 <!-- PROGRESSO -->
 <div class="progresso-wrap">
@@ -345,6 +314,7 @@
   <div class="legenda">
     <div class="leg-item"><div class="leg-dot" style="background:#E8F5EC;border:1px solid #C5E0CC"></div> Pendente</div>
     <div class="leg-item"><div class="leg-dot" style="background:var(--verde)"></div> Registrado</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#CE93D8"></div> Salvo offline</div>
     <div class="leg-item"><div class="leg-dot" style="background:var(--amarelo)"></div> Ausente</div>
     <div class="leg-item"><div class="leg-dot" style="background:#fff;border:2px solid var(--verde)"></div> Atual</div>
   </div>
@@ -352,7 +322,6 @@
 
 <!-- CARD PRINCIPAL -->
 <div class="card" id="card-form">
-
   <div id="status-tag" class="status-tag tag-novo">Nova entrada</div>
   <div class="card-titulo">
     <span class="rotulo-pill" id="rotulo-pill">F1B1</span>
@@ -372,51 +341,26 @@
 
   <!-- ETAPA 1 -->
   <div class="painel visivel" id="painel-1">
-
     <div class="secao">
       <div class="secao-titulo"><div class="dot-secao"></div> Dados Gerais</div>
       <div class="grid-2">
-        <div class="campo">
-          <label for="altura">Altura da Planta (m)</label>
-          <input type="number" id="altura" placeholder="Ex: 1.45" step="0.01" min="0" inputmode="decimal">
-        </div>
-        <div class="campo">
-          <label for="folhas">Nº de Folhas</label>
-          <input type="number" id="folhas" placeholder="Ex: 12" min="1" inputmode="numeric" oninput="this.value=Math.max(1,parseInt(this.value)||1)">
-        </div>
-        <div class="campo">
-          <label for="numCachos">Nº de Cachos</label>
-          <input type="number" id="numCachos" placeholder="Ex: 3" min="0" inputmode="numeric">
-        </div>
+        <div class="campo"><label for="altura">Altura da Planta (m)</label><input type="number" id="altura" placeholder="Ex: 1.45" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="campo"><label for="folhas">Nº de Folhas</label><input type="number" id="folhas" placeholder="Ex: 12" min="1" inputmode="numeric" oninput="this.value=Math.max(1,parseInt(this.value)||1)"></div>
+        <div class="campo"><label for="numCachos">Nº de Cachos</label><input type="number" id="numCachos" placeholder="Ex: 3" min="0" inputmode="numeric"></div>
       </div>
     </div>
 
     <div class="secao">
       <div class="secao-titulo"><div class="dot-secao"></div> SPAD (Unidade)</div>
       <div class="grid-2">
-        <div class="campo">
-          <label for="spadProtocolo">SPAD Protocolo</label>
-          <input type="number" id="spadProtocolo" placeholder="Ex: 42.5" step="0.01" min="0" inputmode="decimal">
-        </div>
-        <div class="campo">
-          <label for="spadApice">SPAD Ápice</label>
-          <input type="number" id="spadApice" placeholder="Ex: 38.2" step="0.01" min="0" inputmode="decimal" oninput="atualizarCalcSpad()">
-        </div>
-        <div class="campo">
-          <label for="spadMedio">SPAD Médio</label>
-          <input type="number" id="spadMedio" placeholder="Ex: 41.0" step="0.01" min="0" inputmode="decimal" oninput="atualizarCalcSpad()">
-        </div>
-        <div class="campo">
-          <label for="spadBase">SPAD Base</label>
-          <input type="number" id="spadBase" placeholder="Ex: 39.5" step="0.01" min="0" inputmode="decimal" oninput="atualizarCalcSpad()">
-        </div>
+        <div class="campo"><label for="spadProtocolo">SPAD Protocolo</label><input type="number" id="spadProtocolo" placeholder="Ex: 42.5" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="campo"><label for="spadApice">SPAD Ápice</label><input type="number" id="spadApice" placeholder="Ex: 38.2" step="0.01" min="0" inputmode="decimal" oninput="atualizarCalcSpad()"></div>
+        <div class="campo"><label for="spadMedio">SPAD Médio</label><input type="number" id="spadMedio" placeholder="Ex: 41.0" step="0.01" min="0" inputmode="decimal" oninput="atualizarCalcSpad()"></div>
+        <div class="campo"><label for="spadBase">SPAD Base</label><input type="number" id="spadBase" placeholder="Ex: 39.5" step="0.01" min="0" inputmode="decimal" oninput="atualizarCalcSpad()"></div>
       </div>
       <div class="campo">
         <label>SPAD Planta <span style="font-weight:400;color:var(--muted)">(calculado automaticamente)</span></label>
-        <div class="calc-box">
-          <span id="prev-spad-planta">—</span>
-          <span class="calc-badge">AUTO</span>
-        </div>
+        <div class="calc-box"><span id="prev-spad-planta">—</span><span class="calc-badge">AUTO</span></div>
         <div class="formula-hint">= (Ápice + Médio + Base) ÷ 3</div>
       </div>
     </div>
@@ -424,25 +368,13 @@
     <div class="secao">
       <div class="secao-titulo"><div class="dot-secao"></div> Índice de Espessura — IE (mm)</div>
       <div class="grid-3">
-        <div class="campo">
-          <label for="ieDE">DE (mm)</label>
-          <input type="number" id="ieDE" placeholder="2.10" step="0.001" min="0" inputmode="decimal" oninput="atualizarCalcIE()">
-        </div>
-        <div class="campo">
-          <label for="ieDPOE">DPOE (mm)</label>
-          <input type="number" id="ieDPOE" placeholder="3.50" step="0.001" min="0" inputmode="decimal" oninput="atualizarCalcIE()">
-        </div>
-        <div class="campo">
-          <label for="ieDPE">DPE (mm)</label>
-          <input type="number" id="ieDPE" placeholder="3.20" step="0.001" min="0" inputmode="decimal" oninput="atualizarCalcIE()">
-        </div>
+        <div class="campo"><label for="ieDE">DE (mm)</label><input type="number" id="ieDE" placeholder="2.10" step="0.001" min="0" inputmode="decimal" oninput="atualizarCalcIE()"></div>
+        <div class="campo"><label for="ieDPOE">DPOE (mm)</label><input type="number" id="ieDPOE" placeholder="3.50" step="0.001" min="0" inputmode="decimal" oninput="atualizarCalcIE()"></div>
+        <div class="campo"><label for="ieDPE">DPE (mm)</label><input type="number" id="ieDPE" placeholder="3.20" step="0.001" min="0" inputmode="decimal" oninput="atualizarCalcIE()"></div>
       </div>
       <div class="campo">
         <label>IE <span style="font-weight:400;color:var(--muted)">(calculado automaticamente)</span></label>
-        <div class="calc-box">
-          <span id="prev-ie">—</span>
-          <span class="calc-badge">AUTO</span>
-        </div>
+        <div class="calc-box"><span id="prev-ie">—</span><span class="calc-badge">AUTO</span></div>
         <div class="formula-hint">= { (DPE − DE) + [(DPOE − DE) + (DPOE − DPE)] ÷ 2 } ÷ 2</div>
       </div>
     </div>
@@ -456,38 +388,28 @@
 
   <!-- ETAPA 2 -->
   <div class="painel" id="painel-2">
-
-    <div class="progresso-folhas">
-      🍃 Esta planta tem <strong id="txt-qtd-folhas">?</strong> folhas — preencha a largura de cada uma
-    </div>
-
+    <div class="progresso-folhas">🍃 Esta planta tem <strong id="txt-qtd-folhas">?</strong> folhas — preencha a largura de cada uma</div>
     <div class="folhas-grid" id="folhas-grid"></div>
-
     <div class="area-preview-box">
       <div class="area-preview-label">Área Foliar da Planta (calculado)</div>
       <div class="area-preview-valor" id="area-preview-valor">—</div>
       <div class="area-preview-unidade">cm²</div>
       <div class="area-preview-detalhe" id="area-preview-detalhe">Preencha as larguras para calcular</div>
     </div>
-
-    <div class="formula-hint" style="margin-bottom:14px">
-      Área por folha = 0,708 × L² − 10,44 × L + 83,4 · Área Foliar = Σ(áreas) ÷ nº de folhas
-    </div>
-
+    <div class="formula-hint" style="margin-bottom:14px">Área por folha = 0,708 × L² − 10,44 × L + 83,4 · Área Foliar = Σ(áreas) ÷ nº de folhas</div>
     <div class="btn-row">
       <button class="btn-secondary" onclick="voltarEtapa1()">← Voltar</button>
       <button class="btn-primary" onclick="salvar()">Salvar Planta ✓</button>
     </div>
   </div>
-
 </div>
 
 <!-- GERAR EXCEL -->
 <div class="card">
   <div class="finalizado">
     <h2>Gerar Planilha</h2>
-    <p>Baixe a qualquer momento. O arquivo terá duas abas: dados completos e resumo por bloco.</p>
-    <button class="btn-excel" onclick="gerar()">⬇ Baixar Excel</button>
+    <p>Funciona online e offline. O arquivo terá duas abas: dados completos e resumo por bloco.</p>
+    <button class="btn-excel" onclick="gerarExcel()">⬇ Baixar Excel</button>
     <button class="btn-novo" onclick="confirmarLimpar()">🗑 Reiniciar coleta</button>
   </div>
 </div>
@@ -495,65 +417,234 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// ════════════════════════════════════════════════
+// CONSTANTES
+// ════════════════════════════════════════════════
 const TOTAL_FILEIRAS    = 10;
 const TOTAL_BLOCOS      = 3;
 const PLANTAS_POR_BLOCO = 10;
+const TOTAL             = TOTAL_FILEIRAS * TOTAL_BLOCOS * PLANTAS_POR_BLOCO;
 
 let fileira = 1, bloco = 1, numBloco = 1;
-let dados = {};
+let dados = {};       // cache em memória {chave: registro}
 let etapaAtual = 1;
 let dadosEtapa1 = null;
+let estaOnline = navigator.onLine;
 
-function chave(f, b, n) { return `${f}-${b}-${n}`; }
-function rotulo(f, b)   { return `F${f}B${b}`; }
+function chave(f,b,n) { return `${f}-${b}-${n}`; }
+function rotulo(f,b)  { return `F${f}B${b}`; }
 
-function calcSpadPlanta(a, m, b) {
-  if (a===''||m===''||b==='') return null;
-  return ((Number(a)+Number(m)+Number(b))/3).toFixed(4);
+// ════════════════════════════════════════════════
+// INDEXEDDB — armazenamento local no celular
+// ════════════════════════════════════════════════
+let db;
+
+function abrirDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('PhytogestorDB', 1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('plantas')) {
+        d.createObjectStore('plantas', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror   = e => reject(e.target.error);
+  });
 }
-function calcIE(de, dpoe, dpe) {
+
+function dbSalvar(registro) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction('plantas', 'readwrite');
+    const loja = tx.objectStore('plantas');
+    // id = chave única, pendente = true se não sincronizado com servidor
+    loja.put({ ...registro, id: chave(registro.fileira, registro.bloco, registro.numBloco) });
+    tx.oncomplete = () => resolve();
+    tx.onerror    = e => reject(e.target.error);
+  });
+}
+
+function dbApagar(f, b, n) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction('plantas', 'readwrite');
+    tx.objectStore('plantas').delete(chave(f, b, n));
+    tx.oncomplete = () => resolve();
+    tx.onerror    = e => reject(e.target.error);
+  });
+}
+
+function dbLerTodos() {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction('plantas', 'readonly');
+    const req = tx.objectStore('plantas').getAll();
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbLimpar() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('plantas', 'readwrite');
+    tx.objectStore('plantas').clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror    = e => reject(e.target.error);
+  });
+}
+
+// ════════════════════════════════════════════════
+// CÁLCULOS
+// ════════════════════════════════════════════════
+function calcSpadPlanta(a,m,b) {
+  if (a===''||m===''||b==='') return null;
+  return Number(((Number(a)+Number(m)+Number(b))/3).toFixed(4));
+}
+function calcIE(de,dpoe,dpe) {
   if (de===''||dpoe===''||dpe==='') return null;
   de=Number(de); dpoe=Number(dpoe); dpe=Number(dpe);
-  return (((dpe-de)+((dpoe-de)+(dpoe-dpe))/2)/2).toFixed(4);
+  return Number((((dpe-de)+((dpoe-de)+(dpoe-dpe))/2)/2).toFixed(4));
 }
-function areaFolha(l) { l=Number(l); return 0.708*l*l-10.44*l+83.4; }
+function areaFolha(l) { l=Number(l); return 0.708*l*l - 10.44*l + 83.4; }
 function calcAreaFoliar(larguras) {
-  const v = larguras.filter(l=>l!=='');
+  const v=larguras.filter(l=>l!=='');
   if (!v.length) return null;
-  return (v.reduce((a,l)=>a+areaFolha(Number(l)),0)/v.length).toFixed(4);
+  return Number((v.reduce((a,l)=>a+areaFolha(Number(l)),0)/v.length).toFixed(4));
+}
+
+function calcularRegistro(campos, larguras) {
+  return {
+    ...campos,
+    spadPlanta: calcSpadPlanta(campos.spadApice, campos.spadMedio, campos.spadBase),
+    ie:         calcIE(campos.ieDE, campos.ieDPOE, campos.ieDPE),
+    areaFoliar: calcAreaFoliar(larguras),
+    largurasFolhas: larguras.map(Number),
+  };
 }
 
 function atualizarCalcSpad() {
-  const r = calcSpadPlanta(
+  const r=calcSpadPlanta(
     document.getElementById('spadApice').value,
     document.getElementById('spadMedio').value,
     document.getElementById('spadBase').value
   );
-  document.getElementById('prev-spad-planta').textContent = r ?? '—';
+  document.getElementById('prev-spad-planta').textContent = r??'—';
 }
 function atualizarCalcIE() {
-  const r = calcIE(
+  const r=calcIE(
     document.getElementById('ieDE').value,
     document.getElementById('ieDPOE').value,
     document.getElementById('ieDPE').value
   );
-  document.getElementById('prev-ie').textContent = r ?? '—';
+  document.getElementById('prev-ie').textContent = r??'—';
 }
 
+// ════════════════════════════════════════════════
+// STATUS ONLINE / OFFLINE
+// ════════════════════════════════════════════════
+function atualizarStatusOnline() {
+  estaOnline = navigator.onLine;
+  const banner = document.getElementById('status-banner');
+  const texto  = document.getElementById('status-texto');
+  if (estaOnline) {
+    banner.className = 'status-banner online';
+    texto.textContent = 'Online — dados sincronizados com o servidor';
+    verificarSincronizacaoPendente();
+  } else {
+    banner.className = 'status-banner offline';
+    texto.textContent = 'Offline — dados salvos no celular';
+  }
+}
+
+function temDadosPendentes() {
+  return Object.values(dados).some(r => r.pendente);
+}
+
+function verificarSincronizacaoPendente() {
+  const syncBanner = document.getElementById('sync-banner');
+  syncBanner.classList.toggle('visivel', temDadosPendentes());
+}
+
+window.addEventListener('online',  () => { atualizarStatusOnline(); });
+window.addEventListener('offline', () => { atualizarStatusOnline(); });
+
+// ════════════════════════════════════════════════
+// INIT — carrega do IndexedDB (sempre) e tenta servidor se online
+// ════════════════════════════════════════════════
 async function init() {
-  const res = await fetch('/dados');
-  const json = await res.json();
-  dados = json.dados || {};
+  await abrirDB();
+  atualizarStatusOnline();
+
+  // 1. Carrega dados locais primeiro (funciona offline)
+  const locais = await dbLerTodos();
+  dados = {};
+  locais.forEach(r => { dados[r.id] = r; });
+
+  // 2. Se online, sincroniza com servidor (servidor é a fonte de verdade)
+  if (estaOnline) {
+    try {
+      const res  = await fetch('/dados', { signal: AbortSignal.timeout(4000) });
+      const json = await res.json();
+      // Mescla: servidor sobrescreve local exceto para itens pendentes
+      const remotos = json.dados || {};
+      Object.entries(remotos).forEach(([k, r]) => {
+        if (!dados[k] || !dados[k].pendente) {
+          dados[k] = { ...r, id: k, pendente: false };
+        }
+      });
+      // Persiste o estado mesclado no IndexedDB
+      await Promise.all(Object.values(dados).map(r => dbSalvar(r)));
+    } catch (e) {
+      // Servidor inacessível — usa dados locais silenciosamente
+    }
+  }
+
+  // Posiciona na primeira planta não registrada
   let achou = false;
   outer: for (let f=1;f<=TOTAL_FILEIRAS;f++)
     for (let b=1;b<=TOTAL_BLOCOS;b++)
       for (let n=1;n<=PLANTAS_POR_BLOCO;n++)
         if (!dados[chave(f,b,n)]) { fileira=f;bloco=b;numBloco=n;achou=true;break outer; }
   if (!achou) { fileira=10;bloco=3;numBloco=10; }
+
   mostrarEtapa(1);
   atualizarUI();
 }
 
+// ════════════════════════════════════════════════
+// SINCRONIZAÇÃO: envia pendentes ao servidor quando volta online
+// ════════════════════════════════════════════════
+async function sincronizarComServidor() {
+  if (!estaOnline) return mostrarToast('Sem internet para sincronizar');
+  const pendentes = Object.values(dados).filter(r => r.pendente);
+  if (!pendentes.length) {
+    document.getElementById('sync-banner').classList.remove('visivel');
+    return mostrarToast('Nenhum dado pendente');
+  }
+
+  mostrarToast(`Sincronizando ${pendentes.length} registros...`);
+  let ok = 0;
+  for (const r of pendentes) {
+    try {
+      const payload = { ...r, ausente: r.ausente || false };
+      delete payload.id; delete payload.pendente;
+      await fetch('/salvar', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(5000)
+      });
+      dados[r.id].pendente = false;
+      await dbSalvar(dados[r.id]);
+      ok++;
+    } catch (e) { /* ignora itens que falharem */ }
+  }
+
+  verificarSincronizacaoPendente();
+  renderizarGrid();
+  mostrarToast(`✅ ${ok} de ${pendentes.length} registros sincronizados!`);
+}
+
+// ════════════════════════════════════════════════
+// UI
+// ════════════════════════════════════════════════
 function mostrarEtapa(n) {
   etapaAtual = n;
   document.getElementById('painel-1').classList.toggle('visivel', n===1);
@@ -564,10 +655,9 @@ function mostrarEtapa(n) {
 }
 
 function atualizarUI() {
-  const total = TOTAL_FILEIRAS*TOTAL_BLOCOS*PLANTAS_POR_BLOCO;
   const reg = Object.keys(dados).length;
-  document.getElementById('txt-progresso').textContent = `${reg} / ${total}`;
-  document.getElementById('barra').style.width = (reg/total*100).toFixed(1)+'%';
+  document.getElementById('txt-progresso').textContent = `${reg} / ${TOTAL}`;
+  document.getElementById('barra').style.width = (reg/TOTAL*100).toFixed(1)+'%';
   document.getElementById('rotulo-pill').textContent = rotulo(fileira,bloco);
   document.getElementById('titulo').textContent = `Planta ${numBloco}`;
 
@@ -579,10 +669,10 @@ function atualizarUI() {
     .forEach(id => document.getElementById(id).value='');
   document.getElementById('prev-spad-planta').textContent='—';
   document.getElementById('prev-ie').textContent='—';
-  dadosEtapa1=null;
+  dadosEtapa1 = null;
 
   if (atual) {
-    tag.textContent = atual.ausente?'⚠ Marcada como ausente':'✏ Editando registro';
+    tag.textContent = atual.ausente ? '⚠ Marcada como ausente' : '✏ Editando registro';
     tag.className = 'status-tag tag-editando';
     document.getElementById('subtitulo').textContent = atual.ausente
       ? 'Esta planta está marcada como ausente.'
@@ -607,7 +697,7 @@ function atualizarUI() {
 
   mostrarEtapa(1);
   renderizarGrid();
-  setTimeout(()=>document.getElementById('altura').focus(),50);
+  setTimeout(()=>document.getElementById('altura').focus(), 50);
 }
 
 function renderizarGrid() {
@@ -622,8 +712,13 @@ function renderizarGrid() {
       for (let n=1;n<=PLANTAS_POR_BLOCO;n++) {
         const dot=document.createElement('div'); dot.className='dot';
         const k=chave(f,b,n);
-        if (f===fileira&&b===bloco&&n===numBloco) dot.classList.add('atual');
-        else if (dados[k]) dot.classList.add(dados[k].ausente?'ausente':'registrado');
+        const r=dados[k];
+        if (f===fileira&&b===bloco&&n===numBloco)  dot.classList.add('atual');
+        else if (r) {
+          if (r.ausente)       dot.classList.add('ausente');
+          else if (r.pendente) dot.classList.add('pendente-sync');
+          else                 dot.classList.add('registrado');
+        }
         dot.title=`${rotulo(f,b)} · Planta ${n}`;
         dot.onclick=()=>irPara(f,b,n);
         g.appendChild(dot);
@@ -633,6 +728,7 @@ function renderizarGrid() {
     }
     row.appendChild(bw); container.appendChild(row);
   }
+  verificarSincronizacaoPendente();
 }
 
 function irPara(f,b,n) {
@@ -641,18 +737,21 @@ function irPara(f,b,n) {
   document.getElementById('card-form').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+// ════════════════════════════════════════════════
+// SALVAR (local + servidor se online)
+// ════════════════════════════════════════════════
 function irParaEtapa2() {
   const campos = {
-    altura:document.getElementById('altura').value,
-    folhas:document.getElementById('folhas').value,
-    numCachos:document.getElementById('numCachos').value,
+    altura:       document.getElementById('altura').value,
+    folhas:       document.getElementById('folhas').value,
+    numCachos:    document.getElementById('numCachos').value,
     spadProtocolo:document.getElementById('spadProtocolo').value,
-    spadApice:document.getElementById('spadApice').value,
-    spadMedio:document.getElementById('spadMedio').value,
-    spadBase:document.getElementById('spadBase').value,
-    ieDE:document.getElementById('ieDE').value,
-    ieDPOE:document.getElementById('ieDPOE').value,
-    ieDPE:document.getElementById('ieDPE').value,
+    spadApice:    document.getElementById('spadApice').value,
+    spadMedio:    document.getElementById('spadMedio').value,
+    spadBase:     document.getElementById('spadBase').value,
+    ieDE:         document.getElementById('ieDE').value,
+    ieDPOE:       document.getElementById('ieDPOE').value,
+    ieDPE:        document.getElementById('ieDPE').value,
   };
   if (Object.values(campos).some(v=>v==='')) return mostrarToast('Preencha todos os campos antes de continuar');
   const qtd=parseInt(campos.folhas);
@@ -671,8 +770,7 @@ function voltarEtapa1() {
 
 function construirGridFolhas(qtd) {
   document.getElementById('txt-qtd-folhas').textContent=qtd;
-  const grid=document.getElementById('folhas-grid');
-  grid.innerHTML='';
+  const grid=document.getElementById('folhas-grid'); grid.innerHTML='';
   const atual=dados[chave(fileira,bloco,numBloco)];
   const salvas=(atual&&!atual.ausente&&atual.largurasFolhas)||[];
   for (let i=0;i<qtd;i++) {
@@ -684,17 +782,14 @@ function construirGridFolhas(qtd) {
     inp.setAttribute('inputmode','decimal');
     if (salvas[i]!=null) inp.value=salvas[i];
     inp.oninput=atualizarPreviewArea;
-    div.appendChild(lbl); div.appendChild(inp);
-    grid.appendChild(div);
+    div.appendChild(lbl); div.appendChild(inp); grid.appendChild(div);
   }
   atualizarPreviewArea();
 }
 
 function getLarguras() {
   const qtd=parseInt(document.getElementById('folhas').value)||0;
-  return Array.from({length:qtd},(_,i)=>{
-    const el=document.getElementById(`folha-${i}`); return el?el.value:'';
-  });
+  return Array.from({length:qtd},(_,i)=>{ const el=document.getElementById(`folha-${i}`); return el?el.value:''; });
 }
 
 function atualizarPreviewArea() {
@@ -711,36 +806,78 @@ async function salvar() {
   if (!dadosEtapa1) return mostrarToast('Volte e preencha os dados da planta');
   const larguras=getLarguras();
   if (larguras.some(l=>l==='')) return mostrarToast(`Preencha todas as ${dadosEtapa1.folhas} larguras`);
-  const res=await fetch('/salvar',{
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({fileira,bloco,numBloco,...dadosEtapa1,largurasFolhas:larguras.map(Number),ausente:false})
-  });
-  const json=await res.json();
-  dados[chave(fileira,bloco,numBloco)]={
-    fileira,bloco,numBloco,ausente:false,
-    altura:Number(dadosEtapa1.altura),folhas:Number(dadosEtapa1.folhas),numCachos:Number(dadosEtapa1.numCachos),
-    spadProtocolo:Number(dadosEtapa1.spadProtocolo),
-    spadApice:Number(dadosEtapa1.spadApice),spadMedio:Number(dadosEtapa1.spadMedio),spadBase:Number(dadosEtapa1.spadBase),
-    spadPlanta:json.spadPlanta,
-    ieDE:Number(dadosEtapa1.ieDE),ieDPOE:Number(dadosEtapa1.ieDPOE),ieDPE:Number(dadosEtapa1.ieDPE),
-    ie:json.ie, numCachos:Number(dadosEtapa1.numCachos),
-    largurasFolhas:larguras.map(Number), areaFoliar:json.areaFoliar
+
+  // Calcula tudo localmente
+  const camposNumericos = {
+    fileira, bloco, numBloco, ausente: false,
+    altura:        Number(dadosEtapa1.altura),
+    folhas:        Number(dadosEtapa1.folhas),
+    numCachos:     Number(dadosEtapa1.numCachos),
+    spadProtocolo: Number(dadosEtapa1.spadProtocolo),
+    spadApice:     Number(dadosEtapa1.spadApice),
+    spadMedio:     Number(dadosEtapa1.spadMedio),
+    spadBase:      Number(dadosEtapa1.spadBase),
+    ieDE:          Number(dadosEtapa1.ieDE),
+    ieDPOE:        Number(dadosEtapa1.ieDPOE),
+    ieDPE:         Number(dadosEtapa1.ieDPE),
   };
-  mostrarToast(`${rotulo(fileira,bloco)} · Planta ${numBloco} salva! Área: ${json.areaFoliar} cm²`);
+  const calc = calcularRegistro(camposNumericos, larguras);
+  const registro = { ...camposNumericos, ...calc, pendente: !estaOnline };
+
+  // Salva no IndexedDB (sempre, online ou offline)
+  const k = chave(fileira,bloco,numBloco);
+  dados[k] = { ...registro, id: k };
+  await dbSalvar(dados[k]);
+
+  // Se online, tenta enviar ao servidor também
+  if (estaOnline) {
+    try {
+      await fetch('/salvar', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ ...camposNumericos, ...calc }),
+        signal: AbortSignal.timeout(5000)
+      });
+      dados[k].pendente = false;
+      await dbSalvar(dados[k]);
+    } catch (e) {
+      dados[k].pendente = true;
+      await dbSalvar(dados[k]);
+      mostrarToast('Salvo offline — será sincronizado quando houver internet');
+    }
+  } else {
+    mostrarToast(`💾 ${rotulo(fileira,bloco)} · Planta ${numBloco} salva offline! Área: ${calc.areaFoliar} cm²`);
+  }
+
+  if (!dados[k].pendente)
+    mostrarToast(`✅ ${rotulo(fileira,bloco)} · Planta ${numBloco} salva! Área: ${calc.areaFoliar} cm²`);
+
   dadosEtapa1=null;
   avancarProxima();
 }
 
 async function marcarAusente() {
-  await fetch('/salvar',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({fileira,bloco,numBloco,ausente:true})});
-  dados[chave(fileira,bloco,numBloco)]={fileira,bloco,numBloco,ausente:true};
+  const k=chave(fileira,bloco,numBloco);
+  const registro = { fileira, bloco, numBloco, ausente:true, id:k, pendente:!estaOnline };
+  dados[k]=registro;
+  await dbSalvar(registro);
+
+  if (estaOnline) {
+    try {
+      await fetch('/salvar',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({fileira,bloco,numBloco,ausente:true}),
+        signal:AbortSignal.timeout(5000)});
+      dados[k].pendente=false;
+      await dbSalvar(dados[k]);
+    } catch(e) { dados[k].pendente=true; await dbSalvar(dados[k]); }
+  }
+
   mostrarToast(`${rotulo(fileira,bloco)} · Planta ${numBloco} marcada como ausente`);
   avancarProxima();
 }
 
 async function limparAtual() {
-  if (!dados[chave(fileira,bloco,numBloco)]) {
+  const k=chave(fileira,bloco,numBloco);
+  if (!dados[k]) {
     ['altura','folhas','numCachos','spadProtocolo','spadApice','spadMedio','spadBase','ieDE','ieDPOE','ieDPE']
       .forEach(id=>document.getElementById(id).value='');
     document.getElementById('prev-spad-planta').textContent='—';
@@ -748,9 +885,17 @@ async function limparAtual() {
     return;
   }
   if (!confirm(`Apagar ${rotulo(fileira,bloco)} · Planta ${numBloco}?`)) return;
-  await fetch('/apagar',{method:'DELETE',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({fileira,bloco,numBloco})});
-  delete dados[chave(fileira,bloco,numBloco)];
+
+  delete dados[k];
+  await dbApagar(fileira,bloco,numBloco);
+
+  if (estaOnline) {
+    try {
+      await fetch('/apagar',{method:'DELETE',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({fileira,bloco,numBloco}),signal:AbortSignal.timeout(5000)});
+    } catch(e) {}
+  }
+
   mostrarToast('Registro apagado');
   atualizarUI();
 }
@@ -760,7 +905,7 @@ function avancarProxima() {
     for (let b=1;b<=TOTAL_BLOCOS;b++)
       for (let n=1;n<=PLANTAS_POR_BLOCO;n++)
         if (!dados[chave(f,b,n)]) { fileira=f;bloco=b;numBloco=n;atualizarUI();break outer; }
-  if (Object.keys(dados).length>=TOTAL_FILEIRAS*TOTAL_BLOCOS*PLANTAS_POR_BLOCO)
+  if (Object.keys(dados).length>=TOTAL)
     mostrarToast('🎉 Todas as 300 plantas foram registradas!');
 }
 
@@ -777,28 +922,102 @@ function navProxima() {
   atualizarUI();
 }
 
-function gerar() { window.location.href='/gerar-excel'; }
-
 async function confirmarLimpar() {
-  if (!confirm('Apagar TODOS os dados e recomeçar?')) return;
-  await fetch('/limpar',{method:'POST'});
+  if (!confirm('Apagar TODOS os dados locais e do servidor?')) return;
+  await dbLimpar();
   dados={};fileira=1;bloco=1;numBloco=1;
+  if (estaOnline) {
+    try { await fetch('/limpar',{method:'POST',signal:AbortSignal.timeout(5000)}); } catch(e){}
+  }
   mostrarToast('Dados apagados. Recomeçando.');
   atualizarUI();
 }
 
-function mostrarToast(msg) {
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),3000);
+// ════════════════════════════════════════════════
+// GERAÇÃO DE EXCEL COM SHEETJS (funciona offline)
+// ════════════════════════════════════════════════
+function gerarExcel() {
+  const wb = XLSX.utils.book_new();
+
+  // ── ABA 1: Dados completos ──────────────────
+  const cab1 = [
+    'Fileira e Bloco','Nº da Planta','Altura (m)','Nº de Folhas',
+    'SPAD Protocolo','SPAD Ápice','SPAD Médio','SPAD Base','SPAD Planta*',
+    'IE - DE (mm)','IE - DPOE (mm)','IE - DPE (mm)','IE*',
+    'Nº de Cachos','Área Foliar (cm²)*','Observação'
+  ];
+
+  const linhas1 = [cab1];
+  for (let f=1;f<=TOTAL_FILEIRAS;f++) {
+    for (let b=1;b<=TOTAL_BLOCOS;b++) {
+      for (let n=1;n<=PLANTAS_POR_BLOCO;n++) {
+        const r = dados[chave(f,b,n)];
+        if (!r) {
+          linhas1.push([rotulo(f,b),n,'-','-','-','-','-','-','-','-','-','-','-','-','-','Não registrado']);
+        } else if (r.ausente) {
+          linhas1.push([rotulo(f,b),n,'-','-','-','-','-','-','-','-','-','-','-','-','-','Ausente']);
+        } else {
+          linhas1.push([
+            rotulo(f,b), n,
+            r.altura, r.folhas,
+            r.spadProtocolo, r.spadApice, r.spadMedio, r.spadBase, r.spadPlanta,
+            r.ieDE, r.ieDPOE, r.ieDPE, r.ie,
+            r.numCachos, r.areaFoliar, ''
+          ]);
+        }
+      }
+    }
+  }
+  linhas1.push([]);
+  linhas1.push(['* SPAD Planta = (Ápice+Médio+Base)/3 | IE = {(DPE-DE)+[(DPOE-DE)+(DPOE-DPE)]/2}/2 | Área Foliar = média de [0,708·L²−10,44·L+83,4]']);
+
+  const ws1 = XLSX.utils.aoa_to_sheet(linhas1);
+
+  // Larguras das colunas
+  ws1['!cols'] = [16,13,12,13,16,13,13,13,14,14,16,14,12,13,18,18].map(w=>({wch:w}));
+
+  XLSX.utils.book_append_sheet(wb, ws1, 'Avaliação Morfofisiológica');
+
+  // ── ABA 2: Resumo por bloco ─────────────────
+  const cab2 = [
+    'Fileira e Bloco',
+    'Média Altura (m)','Média Nº Folhas',
+    'Média SPAD Protocolo','Média SPAD Ápice','Média SPAD Médio',
+    'Média SPAD Base','Média SPAD Planta',
+    'Média IE','Média Nº Cachos','Média Área Foliar (cm²)'
+  ];
+  const campos = ['altura','folhas','spadProtocolo','spadApice','spadMedio','spadBase','spadPlanta','ie','numCachos','areaFoliar'];
+
+  const linhas2 = [cab2];
+  for (let f=1;f<=TOTAL_FILEIRAS;f++) {
+    for (let b=1;b<=TOTAL_BLOCOS;b++) {
+      const plantas = [];
+      for (let n=1;n<=PLANTAS_POR_BLOCO;n++) {
+        const r=dados[chave(f,b,n)];
+        if (r&&!r.ausente) plantas.push(r);
+      }
+      const media = campo => {
+        const vals=plantas.map(p=>p[campo]).filter(v=>v!=null&&!isNaN(v));
+        if (!vals.length) return '-';
+        return Number((vals.reduce((a,v)=>a+v,0)/vals.length).toFixed(4));
+      };
+      linhas2.push([rotulo(f,b), ...campos.map(c=>media(c))]);
+    }
+  }
+  linhas2.push([]);
+  linhas2.push(['Médias calculadas somente com plantas registradas (ausentes e não registradas são excluídas).']);
+
+  const ws2 = XLSX.utils.aoa_to_sheet(linhas2);
+  ws2['!cols'] = [16,18,16,22,18,18,18,18,14,18,22].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resumo por Bloco');
+
+  // Dispara o download
+  XLSX.writeFile(wb, 'avaliacao_morfofisiologica.xlsx');
 }
 
-document.addEventListener('keydown',e=>{
-  if (e.key!=='Enter'||e.target.tagName==='BUTTON') return;
-  if (etapaAtual===1) irParaEtapa2(); else salvar();
-});
-
-// ── Barra mobile fixa no rodapé (apenas em telas ≤ 600px)
+// ════════════════════════════════════════════════
+// BARRA MOBILE
+// ════════════════════════════════════════════════
 function atualizarTextoBtnMobile() {
   const btn=document.getElementById('btn-mobile-acao');
   if (!btn) return;
@@ -810,42 +1029,47 @@ function criarBarraMobile() {
   const barra=document.createElement('div');
   barra.id='barra-mobile';
   barra.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1.5px solid #B7DFC6;padding:10px 14px 16px;display:flex;gap:10px;z-index:200;box-shadow:0 -4px 20px rgba(45,106,79,0.12)';
-
   const s=(extra)=>'font-family:DM Sans,sans-serif;font-weight:600;border-radius:10px;min-height:50px;cursor:pointer;-webkit-tap-highlight-color:transparent;'+extra;
-
   const btnAnt=document.createElement('button');
   btnAnt.textContent='←'; btnAnt.setAttribute('aria-label','Planta anterior');
   btnAnt.style.cssText=s('flex:0 0 52px;font-size:20px;background:#D8F3DC;color:#2D6A4F;border:1.5px solid #B7DFC6;');
   btnAnt.onclick=navAnterior;
-
   const btnAcao=document.createElement('button');
   btnAcao.id='btn-mobile-acao';
   btnAcao.style.cssText=s('flex:1;font-size:14px;background:#2D6A4F;color:#fff;border:none;');
   btnAcao.onclick=()=>{ if(etapaAtual===1) irParaEtapa2(); else salvar(); };
-
   const btnProx=document.createElement('button');
   btnProx.textContent='→'; btnProx.setAttribute('aria-label','Próxima planta');
   btnProx.style.cssText=s('flex:0 0 52px;font-size:20px;background:#D8F3DC;color:#2D6A4F;border:1.5px solid #B7DFC6;');
   btnProx.onclick=navProxima;
-
-  barra.appendChild(btnAnt);
-  barra.appendChild(btnAcao);
-  barra.appendChild(btnProx);
+  barra.appendChild(btnAnt); barra.appendChild(btnAcao); barra.appendChild(btnProx);
   document.body.appendChild(barra);
   atualizarTextoBtnMobile();
 }
 
-window.addEventListener('load', criarBarraMobile);
+// ════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════
+function mostrarToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3500);
+}
 
+document.addEventListener('keydown',e=>{
+  if (e.key!=='Enter'||e.target.tagName==='BUTTON') return;
+  if (etapaAtual===1) irParaEtapa2(); else salvar();
+});
+
+window.addEventListener('load', criarBarraMobile);
 init();
 </script>
 
-<!-- Service Worker -->
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
-      .then(r => console.log('SW registrado:', r.scope))
-      .catch(e => console.warn('SW falhou:', e));
+      .then(r=>console.log('SW registrado:',r.scope))
+      .catch(e=>console.warn('SW falhou:',e));
   }
 </script>
 </body>
