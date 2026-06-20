@@ -4,11 +4,11 @@
     { "src": "app.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/dados",        "dest": "app.js" },
-    { "src": "/salvar",       "dest": "app.js" },
-    { "src": "/apagar",       "dest": "app.js" },
-    { "src": "/limpar",       "dest": "app.js" },
-    { "src": "/gerar-excel",  "dest": "app.js" },
-    { "src": "/(.*)",         "dest": "/public/$1" }
+    { "src": "/dados",       "dest": "/app.js" },
+    { "src": "/salvar",      "dest": "/app.js" },
+    { "src": "/apagar",      "dest": "/app.js" },
+    { "src": "/limpar",      "dest": "/app.js" },
+    { "src": "/gerar-excel", "dest": "/app.js" },
+    { "src": "/(.*)",        "dest": "/app.js" }
   ]
 }
